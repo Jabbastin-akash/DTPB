@@ -1,0 +1,147 @@
+IMPLEMENTATION DOCUMENT
+Design Thinking World — Empathy & Define State
+Phaser 3 Tile-Based Game
+
+
+1. Project Overview
+This document describes the full technical implementation of the Design Thinking World game's Empathy & Define State. The game is built using Phaser 3 with the Tiled map editor workflow described in Mike Westhad's Phaser 3 tilemap blog post series (post-1 pattern). The world is a bounded, top-down tile-based urbanized village with task houses, NPCs, and an upgradeable zone.
+
+1.1 Tech Stack
+Layer	Technology
+Game Engine	Phaser 3 (v3.60+)
+Map Editor	Tiled Map Editor (v1.10+)
+Map Format	Tiled JSON export → loaded via Phaser loader
+Tileset	16x16 or 32x32 pixel art tileset PNG
+Language	JavaScript (ES6 modules)
+UI Overlays	Phaser DOM / Game Objects for task panels
+State Management	Plain JS object (GameState)
+
+2. Phaser 3 Tilemap Setup (Post-1 Pattern)
+Following the mikewesthad blog post-1 pattern, the map is loaded and rendered as follows:
+
+2.1 Asset Loading (preload scene)
+In the preload() function, load the tilemap JSON and tileset image:
+
+  this.load.tilemapTiledJSON('map', 'assets/map/village.json');
+  this.load.image('tiles', 'assets/tilesets/village-tiles.png');
+
+2.2 Map Creation (create scene)
+  const map = this.make.tilemap({ key: 'map' });
+  const tileset = map.addTilesetImage('village-tiles', 'tiles');
+  const groundLayer = map.createLayer('Ground', tileset, 0, 0);
+  const wallLayer = map.createLayer('Walls', tileset, 0, 0);
+  const objectLayer = map.createLayer('Objects', tileset, 0, 0);
+  wallLayer.setCollisionByExclusion([-1]);
+
+2.3 Tiled Layer Structure
+Layer Name	Type	Purpose
+Ground	Tile Layer	Grass, paths, plaza tiles
+Walls	Tile Layer (collision)	Boundary walls, fences, buildings
+Objects	Tile Layer	Trees, benches, decorations
+Buildings	Tile Layer	Task houses, shop building
+Upgrade	Tile Layer (dynamic)	Upgradeable tiles (flowers, lamps, etc.)
+NPCs	Object Layer	NPC spawn points with properties
+Spawn	Object Layer	Player spawn point
+
+3. Map Design Specifications
+3.1 Map Dimensions
+    • Map size: 25 x 20 tiles
+    • Tile size: 32 x 32 pixels
+    • World pixel size: 800 x 640 pixels
+    • Camera: follows player, clamped to world bounds
+
+3.2 Task House Positions (tile coordinates)
+House	Task	Tile X,Y	NPC Patrol
+House 1	Define Problem Statement	4, 4	3–5, 6
+House 2	Empathize & Story	20, 4	19–21, 6
+House 3	Find a User + Draw	4, 12	3–5, 14
+House 4	Sad/Happy Space	20, 12	19–21, 14
+House 5	My Product Will Help	12, 4	11–13, 6
+Shop	Upgrade Zone Shop	21, 16	20–22, 18
+
+3.3 Player Spawn
+    • Spawn position: tile 12, 18 (bottom-center)
+    • Guide NPC stands at tile 12, 16 and walks one tile forward on game start
+
+4. NPC System
+4.1 NPC Types
+NPC Type	Count	Behaviour
+Guide NPC	1	Walks toward player at spawn, triggers welcome dialog, stays near entrance
+Task NPCs	5	Patrol 2–3 tiles in front of assigned house. Show ! bubble. Trigger task panel on interact.
+Shopkeeper NPC	1	Stands at shop door. Opens upgrade shop panel on interact.
+Villager NPCs	3–4	Random idle walk on paths and benches. No interaction. Add world life.
+
+4.2 NPC Interaction Flow
+    1. Player walks near NPC (within 1 tile radius)
+    2. NPC shows '!' speech bubble above head
+    3. Player presses Spacebar or E to interact
+    4. Phaser emits 'npc:interact' event with npcId
+    5. UIManager opens corresponding task panel
+
+5. Task Panel System
+5.1 Panel Architecture
+Each task panel is a Phaser DOM element (this.add.dom) overlaid on the game canvas. The game input is disabled while a panel is open. Panels are built as HTML/CSS components injected into the DOM.
+
+5.2 Panel Components by Task
+Task	Panel Name	Key UI Components
+Task 1	ProblemStatement	Welcome message, single text field, submit button
+Task 2	EmpathizeDefine	6-question form (Who, What, When, Where, How, Why)
+Task 3a	FindAUser	6-question form + canvas draw area
+Task 3b	SadHappySpace	Two canvas areas (sad + happy) with text/draw toggle
+Task 4	MyProductWillHelp	Problem selection form inside fixed map boundary
+
+5.3 Points Award on Completion
+Task	Points Awarded	Trigger
+Task 1 — Problem Statement	20 pts	On valid text submit
+Task 2 — Empathize Story	30 pts	All 6 fields filled
+Task 3a — Find a User	30 pts + 10 bonus	6 fields + drawing submitted
+Task 3b — Sad/Happy Canvas	25 pts	Both canvases submitted
+Task 4 — My Product Helps	35 pts	Problem selection submitted
+
+6. Upgrade System
+6.1 Upgrade Data Model
+Each upgrade is a JS object stored in the GameState:
+
+  { id: 'flowers', label: 'Plant Flowers', cost: 10, purchased: false,
+    tileX: 18, tileY: 15, tileId: 42, layer: 'Upgrade' }
+
+6.2 Upgrade Catalogue
+Upgrade	Cost	Map Change
+Plant Flowers	10 pts	Soil tiles → flower tiles in upgrade zone
+Water Garden	15 pts	Dry grass tiles → lush green tiles
+Add Park Bench	10 pts	Empty tile → bench tile + villager NPC spawns
+Add a Pet	20 pts	Cat or dog sprite NPC appears near fountain
+Upgrade Fountain	30 pts	Small fountain tile → large animated fountain
+Add Street Lamps	15 pts	Dark path tiles → lamp tile with glow overlay
+Paint a Mural	25 pts	Plain wall tile → painted mural tile
+
+6.3 Tile Swap on Purchase
+When a student buys an upgrade, putTileAt() is called on the Upgrade layer to swap the tile ID:
+
+  upgradeLayer.putTileAt(newTileId, upgrade.tileX, upgrade.tileY);
+
+7. HUD (Heads-Up Display)
+    • Rendered as a fixed Phaser container (setScrollFactor(0)) at top of screen
+    • Shows: star icon + point total | task progress bar (0/5 tasks)
+    • Points counter animates (tween) when points are added
+    • Task progress bar fills one segment per completed task
+
+8. Scene Structure
+Scene	Responsibility
+BootScene	Load minimal assets, show loading bar
+CharSelectScene	Male / female character selection UI
+GameScene	Main world: map, player, NPCs, camera, HUD, upgrades
+UIScene	Runs in parallel. Handles all task panels and shop UI
+CompleteScene	Shown after all 5 tasks done. Celebrates completion.
+
+9. File / Folder Structure
+src/
+  scenes/  BootScene.js | CharSelectScene.js | GameScene.js | UIScene.js
+  objects/ Player.js | NPC.js | Villager.js
+  ui/      TaskPanel.js | ShopPanel.js | HUD.js
+  data/    upgrades.js | tasks.js | gameState.js
+  utils/   EventBus.js | SaveManager.js
+assets/
+  map/     village.json (Tiled export)
+  tilesets/village-tiles.png
+  sprites/ player-male.png | player-female.png | npcs.png | pets.png

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Design Thinking World</title>
+    <link rel="icon" href="data:,">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0d0d1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #fff;
+            font-family: sans-serif;
+            overflow: hidden;
+        }
+
+        #game-container {
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        /* Task Panel Input Styling */
+        .task-panel input, .task-panel textarea {
+            box-sizing: border-box;
+            background-color: rgba(255,255,255,0.9);
+            border: 2px solid #ccc;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .task-panel input:focus, .task-panel textarea:focus {
+            border-color: #3498db;
+        }
+
+        .task-panel .btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .task-panel .btn.submit {
+            background-color: #2ecc71;
+            color: white;
+        }
+
+        .task-panel .btn.submit:hover:not(:disabled) {
+            background-color: #27ae60;
+        }
+
+        .task-panel .btn.submit:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+
+        .task-panel .btn.cancel {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        .task-panel .btn.cancel:hover {
+            background-color: #c0392b;
+        }
+
+        .shop-panel button:hover:not(:disabled) {
+            transform: scale(1.05);
+        }
+
+        h2, h3, h4 { margin-top: 0; }
+        
+        .task-panel label {
+            display: inline-block;
+            margin-bottom: 5px;
+        }
+    </style>
+    
+    <!-- Load Phaser Framework via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    
+    <!-- Load Core Dependencies -->
+    <script src="src/data/gameState.js"></script>
+    <script src="src/data/tasks.js"></script>
+    <script src="src/data/upgrades.js"></script>
+    <script src="src/utils/EventBus.js"></script>
+    <script src="src/assets/TilesetGenerator.js"></script>
+    <script src="src/assets/SpriteGenerator.js"></script>
+    <script src="src/objects/NPC.js"></script>
+    <script src="src/objects/Player.js"></script>
+    <script src="src/ui/HUD.js"></script>
+    <script src="src/ui/TaskPanel.js"></script>
+    <script src="src/ui/ShopPanel.js"></script>
+
+    <!-- Load Scenes -->
+    <script src="src/scenes/BootScene.js"></script>
+    <script src="src/scenes/CharSelectScene.js"></script>
+    <script src="src/scenes/GameScene.js"></script>
+    <script src="src/scenes/UIScene.js"></script>
+    <script src="src/scenes/CompleteScene.js"></script>
+
+    <!-- Load Main Game Entry Point -->
+    <script src="main.js"></script>
+</head>
+<body>
+    <div id="game-container"></div>
+</body>
+</html>
