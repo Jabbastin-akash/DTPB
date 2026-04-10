@@ -37,6 +37,12 @@ class BootScene extends Phaser.Scene {
         this.load.image('decor_stone', 'src/assets/craftpix-net-504452-free-village-pixel-tileset-for-top-down-defense/2 Objects/2 Stone/1.png');
         this.load.image('decor_box', 'src/assets/craftpix-net-504452-free-village-pixel-tileset-for-top-down-defense/2 Objects/4 Box/1.png');
 
+        // New Assets
+        this.load.spritesheet('bull', 'src/assets/bull.png', { frameWidth: 128, frameHeight: 128 });
+        this.load.spritesheet('hotdogs', 'src/assets/hotdogs.png', { frameWidth: 50, frameHeight: 45 });
+        this.load.spritesheet('hugedogs', 'src/assets/hugedogs.png', { frameWidth: 22, frameHeight: 18 });
+        this.load.image('pixel_scenery', 'src/assets/Nateonus8x8PixelPack/FullSpriteSheetsNoPadding/Scenery/Grass&StoneScenery.png');
+
         // Generate tileset
         const tilesetResult = generateTilesetImage();
         this.textures.addCanvas('village-tiles', tilesetResult.canvas);
@@ -92,6 +98,11 @@ class BootScene extends Phaser.Scene {
         // Pet animations
         this.anims.create({ key: 'pet_cat_walk', frames: this.anims.generateFrameNumbers('pet_cat', { start: 0, end: 2 }), frameRate: 6, repeat: -1 });
         this.anims.create({ key: 'pet_dog_walk', frames: this.anims.generateFrameNumbers('pet_dog', { start: 0, end: 2 }), frameRate: 6, repeat: -1 });
+
+        // Extra animations
+        this.anims.create({ key: 'bull_anim', frames: this.anims.generateFrameNumbers('bull', { start: 0, end: 3 }), frameRate: 4, repeat: -1 });
+        this.anims.create({ key: 'hotdogs_anim', frames: this.anims.generateFrameNumbers('hotdogs', { start: 0, end: 4 }), frameRate: 8, repeat: -1 });
+        this.anims.create({ key: 'hugedogs_anim', frames: this.anims.generateFrameNumbers('hugedogs', { start: 0, end: 2 }), frameRate: 6, repeat: -1 });
 
         this.scene.start('CharSelectScene');
     }

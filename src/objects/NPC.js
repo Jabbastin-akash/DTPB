@@ -231,6 +231,7 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
             EventBus.once('panel:close', () => {
                 this.isInteracting = false;
             });
+            return true; // Panel opened
         } else if (this.npcId === 'shopkeeper') {
              EventBus.emit('npc:interact', {
                 npcId: this.npcId,
@@ -240,13 +241,16 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
             EventBus.once('panel:close', () => {
                 this.isInteracting = false;
             });
+            return true; // Panel opened
         } else {
             // Villagers, locked tasks, completed tasks, or guide
             this.showSpeechBubble(this.getDialogue());
+            return false; // No panel opened
         }
     }
 
     showSpeechBubble(text) {
+        this.scene.input.keyboard.enabled = false;
         // A simple bubble for non-panel interactions
         const bubble = this.scene.add.container(this.x, this.y - 40);
         const bg = this.scene.add.graphics();
@@ -265,8 +269,11 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
         bubble.setDepth(20);
 
         this.scene.time.delayedCall(3000, () => {
-            bubble.destroy();
+            if (bubble) bubble.destroy();
             this.isInteracting = false;
+            // Re-enable player movement after bubble disappears
+            this.scene.input.keyboard.enabled = true; 
+            this.scene.input.keyboard.resetKeys();
         });
     }
 

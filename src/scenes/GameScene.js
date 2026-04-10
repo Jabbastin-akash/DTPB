@@ -140,14 +140,17 @@ class GameScene extends Phaser.Scene {
              });
 
              if (closest) {
-                 closest.interact(this.player);
-                 this.input.keyboard.enabled = false; // Disable game movement while panel open
+                 const openedPanel = closest.interact(this.player);
+                 if (openedPanel) {
+                     this.input.keyboard.enabled = false; // Disable game movement while panel open
+                 }
              }
         });
 
         // Re-enable input after panel close
         EventBus.on('panel:close', () => {
             this.input.keyboard.enabled = true;
+            this.input.keyboard.resetKeys();
         });
 
         // Apply any pre-purchased upgrades
@@ -159,14 +162,85 @@ class GameScene extends Phaser.Scene {
         gameState.tasksComplete.forEach(tId => this.markTaskHouse({ taskId: tId }));
         gameState.upgradesPurchased.forEach(uId => this.applyUpgrade(uId));
 
+        // Guider Arrow setup
+        this.createMissionGuider();
+
         // Spawn user NPC if task3a is complete
         if (gameState.isTaskComplete('task3a')) {
             this.spawnUserNPC();
         }
     }
 
+    createMissionGuider() {
+        this.guiderArrow = this.add.graphics();
+        this.guiderArrow.setDepth(100);
+        this.guiderArrow.fillStyle(0xFFD700, 0.8);
+        this.guiderArrow.lineStyle(2, 0x000000, 1);
+        
+        // Draw pointing right
+        this.guiderArrow.beginPath();
+        this.guiderArrow.moveTo(15, 0);
+        this.guiderArrow.lineTo(-10, -10);
+        this.guiderArrow.lineTo(-4, 0);
+        this.guiderArrow.lineTo(-10, 10);
+        this.guiderArrow.closePath();
+        this.guiderArrow.fillPath();
+        this.guiderArrow.strokePath();
+
+        this.tweens.add({
+            targets: this.guiderArrow,
+            scaleX: 1.2,
+            scaleY: 1.2,
+            duration: 500,
+            yoyo: true,
+            repeat: -1
+        });
+    }
+
     update(time, delta) {
         if (this.player) this.player.update();
+        this.updateMissionGuider();
+    }
+
+    updateMissionGuider() {
+        if (!this.guiderArrow || !this.player) return;
+
+        let activeTarget = null;
+        
+        // Find the current active step in TASK_ORDER
+        for (const taskId of TASK_ORDER) {
+            if (!gameState.isTaskComplete(taskId)) {
+                if (gameState.isTaskUnlocked(taskId)) {
+                    // This is the active task
+                    const npc = this.npcs.getChildren().find(n => n.taskId === taskId);
+                    if (npc) activeTarget = { x: npc.x, y: npc.y };
+                    break;
+                }
+            }
+        }
+
+        if (activeTarget) {
+            this.guiderArrow.setVisible(true);
+            const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, activeTarget.x, activeTarget.y);
+            
+            // Only show arrow if target is somewhat far away
+            if (dist > 80) {
+                this.guiderArrow.setAlpha(1);
+                // Position arrow orbiting the player
+                const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, activeTarget.x, activeTarget.y);
+                this.guiderArrow.x = this.player.x + Math.cos(angle) * 40;
+                this.guiderArrow.y = this.player.y + Math.sin(angle) * 40;
+                this.guiderArrow.rotation = angle;
+            } else {
+                this.guiderArrow.setAlpha(0.2); // Fade out when close
+                const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, activeTarget.x, activeTarget.y);
+                this.guiderArrow.x = this.player.x + Math.cos(angle) * 40;
+                this.guiderArrow.y = this.player.y + Math.sin(angle) * 40;
+                this.guiderArrow.rotation = angle;
+            }
+        } else {
+            this.guiderArrow.setVisible(false); // No active task (game complete)
+        }
     }
 
     onTaskComplete({ taskId }) {
@@ -235,6 +309,56 @@ class GameScene extends Phaser.Scene {
                 this.groundLayer.putTileAt(TID.COBBLESTONE, x, y);
             }
         }
+
+        // Place new explicit assets to enhance the map
+        const extraSprites = [
+            { key: 'bull', x: 5 * 32, y: 12 * 32, scale: 0.8, anim: 'bull_anim', bounceX: -60, speed: 6000 },
+            { key: 'hotdogs', x: 23 * 32, y: 16 * 32, scale: 1.2, anim: 'hotdogs_anim', bounceX: 50, speed: 4000 },
+            { key: 'hugedogs', x: 23 * 32, y: 18 * 32, scale: 1.5, anim: 'hugedogs_anim', bounceX: -40, speed: 5000 }
+        ];
+
+        extraSprites.forEach(obj => {
+            const sprite = this.add.sprite(obj.x, obj.y, obj.key).setOrigin(0.5, 1);
+            sprite.setScale(obj.scale);
+            sprite.setDepth(obj.y);
+            this.physics.add.existing(sprite, false); // Dynamic body
+            sprite.body.setImmovable(true);
+            
+            // Adjust bounds relative to un-scaled width
+            const offX = (sprite.width - (sprite.width * 0.6)) / 2;
+            const offY = sprite.height - (sprite.height * 0.4);
+            
+            sprite.body.setSize(sprite.width * 0.6, sprite.height * 0.4);
+            sprite.body.setOffset(offX, offY);
+            
+            this.physics.add.collider(this.player, sprite);
+            sprite.play(obj.anim);
+
+            if (obj.bounceX) {
+                this.tweens.add({
+                    targets: sprite,
+                    x: obj.x + obj.bounceX,
+                    duration: obj.speed,
+                    yoyo: true,
+                    repeat: -1,
+                    onUpdate: () => {
+                        // Keep dynamic body in sync with tweened X
+                        if (sprite.body) sprite.body.updateFromGameObject();
+                    },
+                    onYoyo: () => { sprite.flipX = obj.bounceX > 0; },
+                    onRepeat: () => { sprite.flipX = obj.bounceX < 0; }
+                });
+                sprite.flipX = obj.bounceX < 0;
+            }
+        });
+
+        // Add the pixel scenery image statically, far from spawn
+        const pixelScenery = this.add.image(10 * 32, 2 * 32, 'pixel_scenery').setOrigin(0.5, 1).setScale(4);
+        pixelScenery.setDepth(2 * 32);
+        this.physics.add.existing(pixelScenery, true);
+        pixelScenery.body.setSize(pixelScenery.width * 0.8, pixelScenery.height * 0.4);
+        pixelScenery.body.setOffset((pixelScenery.width * 0.2) / 2, pixelScenery.height * 0.6);
+        this.physics.add.collider(this.player, pixelScenery);
     }
 
     applyPathEdges() {
