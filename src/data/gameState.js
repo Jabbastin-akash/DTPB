@@ -7,6 +7,10 @@ const gameState = {
     upgradesPurchased: [],      // e.g. ['flowers', 'bench', ...]
     playerGender: 'male',       // Set by CharSelectScene
 
+    // Generic per-task storage (used by new story tasks + PDF export)
+    taskAnswers: {},            // e.g. { task6: { ideaTitle: '...', ... } }
+    taskDrawings: {},           // e.g. { task6: 'data:image/png;base64,...' }
+
     // Task 1 — Define the Problem Statement
     problemStatement: {
         problem: '',
@@ -68,7 +72,7 @@ const gameState = {
     completeTask(taskId) {
         if (!this.tasksComplete.includes(taskId)) {
             this.tasksComplete.push(taskId);
-            EventBus.emit('task:completed', { taskId, total: this.tasksComplete.length, isNewCompletion: true });
+            EventBus.emit('task:completed', { taskId, total: this.getCompletedTaskCount(), isNewCompletion: true });
         }
     },
 
@@ -78,7 +82,10 @@ const gameState = {
 
     isTaskUnlocked(taskId) {
         // task1 is always unlocked; others require previous task completion
-        const order = ['task1', 'task2', 'task3a', 'task3b', 'task4'];
+        const order = (typeof TASK_ORDER !== 'undefined' && Array.isArray(TASK_ORDER) && TASK_ORDER.length)
+            ? TASK_ORDER
+            : ['task1', 'task2', 'task3a', 'task3b', 'task5', 'task6', 'task7', 'task4'];
+
         const idx = order.indexOf(taskId);
         if (idx <= 0) return true;
         return this.tasksComplete.includes(order[idx - 1]);
@@ -95,11 +102,20 @@ const gameState = {
     },
 
     getCompletedTaskCount() {
-        return this.tasksComplete.length;
+        const order = (typeof TASK_ORDER !== 'undefined' && Array.isArray(TASK_ORDER) && TASK_ORDER.length)
+            ? TASK_ORDER
+            : (typeof TASKS === 'object' && TASKS) ? Object.keys(TASKS) : [];
+
+        if (!order || order.length === 0) return this.tasksComplete.length;
+        return order.filter(tId => this.tasksComplete.includes(tId)).length;
     },
 
     get allTasksComplete() {
-        const totalTasks = (typeof TASKS === 'object' && TASKS) ? Object.keys(TASKS).length : 5;
-        return this.tasksComplete.length >= totalTasks;
+        const order = (typeof TASK_ORDER !== 'undefined' && Array.isArray(TASK_ORDER) && TASK_ORDER.length)
+            ? TASK_ORDER
+            : (typeof TASKS === 'object' && TASKS) ? Object.keys(TASKS) : [];
+
+        if (!order || order.length === 0) return false;
+        return order.every(tId => this.tasksComplete.includes(tId));
     }
 };

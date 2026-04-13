@@ -33,14 +33,17 @@ class CharSelectScene extends Phaser.Scene {
 
         // Sprite preview (scaled up)
         const preview = this.add.sprite(0, -30, spriteKey, 0);
-        preview.setScale(4);
+        // Fit preview into the card regardless of sprite frame size
+        const maxSize = 120;
+        const denom = Math.max(preview.width || 1, preview.height || 1);
+        preview.setScale(maxSize / denom);
 
         // Name
         const txt = this.add.text(0, 80, label, {
             fontFamily: 'sans-serif', fontSize: '24px', color: '#ffffff', fontStyle: 'bold'
         }).setOrigin(0.5);
 
-        container.add([border, bg, preview, txt]);
+        container.add([border, bg, preview, txt].filter(Boolean));
 
         // Hover effects
         bg.on('pointerover', () => {

@@ -44,7 +44,7 @@ class HUD extends Phaser.GameObjects.Container {
             align: 'left'
         }).setOrigin(0, 0).setShadow(2, 2, 'rgba(0,0,0,0.65)', 0);
 
-        this.add([pointsIcon, this.pointsText]);
+        this.add([pointsIcon, this.pointsText].filter(Boolean));
 
         // --- Right Side: Task Progress ---
         const tasksLabel = scene.add.text(GAME_WIDTH - PADDING_X, PADDING_Y, 'Tasks', {
@@ -78,7 +78,7 @@ class HUD extends Phaser.GameObjects.Container {
             align: 'left'
         }).setAlpha(0);
 
-        this.add([tasksLabel, this.progressCount, progressBg, this.progressBar, this.checkmark]);
+        this.add([tasksLabel, this.progressCount, progressBg, this.progressBar, this.checkmark].filter(Boolean));
 
         // --- Event Listeners & Initial State ---
         this.getAll().forEach(item => item.setScrollFactor(0).setDepth(10));

@@ -13,9 +13,14 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         this.scene.add.existing(this);
         this.scene.physics.add.existing(this);
 
-        // Adjust 32x32 sprite hitbox to just cover the legs for isometric feel
-        this.body.setSize(16, 12);
-        this.body.setOffset(8, 20);
+        // Adjust hitbox to just cover the legs for top-down feel
+        // Works for any frame size (32/48/64...) as long as origin is centered.
+        const bodyW = 16;
+        const bodyH = 12;
+        const frameW = this.width || 32;
+        const frameH = this.height || 32;
+        this.body.setSize(bodyW, bodyH);
+        this.body.setOffset(Math.floor((frameW - bodyW) / 2), Math.floor(frameH - bodyH));
         this.body.setCollideWorldBounds(true);
 
         // Movement keys
@@ -29,7 +34,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
             e: Phaser.Input.Keyboard.KeyCodes.E
         });
 
-        this.speed = 120;
+        this.speed = 220;
         this.facing = 'down';
         
         // Interact key debounce
@@ -40,8 +45,8 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         // Stop moving by default
         this.body.setVelocity(0);
 
-        // Don't move if UI is active (input disabled by scene)
-        if (!this.scene.input.keyboard.enabled) {
+        // Don't move if UI is active (movement locked by scene)
+        if (this.scene.movementEnabled === false) {
             this.anims.play(`${this.spriteKey}_idle_${this.facing}`, true);
             return;
         }

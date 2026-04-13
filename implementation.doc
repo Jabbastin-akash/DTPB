@@ -1,147 +1,398 @@
 IMPLEMENTATION DOCUMENT
-Design Thinking World — Empathy & Define State
-Phaser 3 Tile-Based Game
+Design Thinking World — Location-Based 8-Step Story + PDF Export
+Phaser 3 (CDN) — Procedural Tilemap + DOM UI
+Last updated: 2026-04-11
+
+
+0. Quick Start (Run the Game)
+
+Requirements
+  - A modern browser (Chrome/Edge recommended)
+  - Python (for local static server)
+  - Internet connection (Phaser + jsPDF are loaded from CDNs in index.html)
+
+Run locally
+  1) Open a terminal in the project root (d:\Programs\DTPB)
+  2) Start a server:
+       python -m http.server 8000
+  3) Open in browser:
+       http://localhost:8000
+  4) Stop the server with Ctrl+C
+
+Controls
+  - Move: WASD or Arrow Keys
+  - Interact / confirm: E or Space
 
 
 1. Project Overview
-This document describes the full technical implementation of the Design Thinking World game's Empathy & Define State. The game is built using Phaser 3 with the Tiled map editor workflow described in Mike Westhad's Phaser 3 tilemap blog post series (post-1 pattern). The world is a bounded, top-down tile-based urbanized village with task houses, NPCs, and an upgradeable zone.
 
-1.1 Tech Stack
-Layer	Technology
-Game Engine	Phaser 3 (v3.60+)
-Map Editor	Tiled Map Editor (v1.10+)
-Map Format	Tiled JSON export → loaded via Phaser loader
-Tileset	16x16 or 32x32 pixel art tileset PNG
-Language	JavaScript (ES6 modules)
-UI Overlays	Phaser DOM / Game Objects for task panels
-State Management	Plain JS object (GameState)
+This project is a Phaser 3 educational game that guides a student through a fixed, sequential 8-step design thinking story.
+The main gameplay happens in a “village hub” world. The player must walk to the next unlocked location on the map.
+When the player interacts at that location, the task opens as either:
+  - a popup task panel (DOM overlay), or
+  - a separate mini-game scene (Football and Maze)
 
-2. Phaser 3 Tilemap Setup (Post-1 Pattern)
-Following the mikewesthad blog post-1 pattern, the map is loaded and rendered as follows:
+All text answers and drawings are stored in a global game state object and exported at the end as a multi-page PDF report.
 
-2.1 Asset Loading (preload scene)
-In the preload() function, load the tilemap JSON and tileset image:
+Key requirements implemented
+  - Location-driven progression (only the next unlocked location is active)
+  - Mixed UX (some tasks are panels, some are separate scenes)
+  - Persistent in-session storage of all task data (text + drawings)
+  - Final export to PDF including drawings, multi-page, with auto-download + manual download button
 
-  this.load.tilemapTiledJSON('map', 'assets/map/village.json');
-  this.load.image('tiles', 'assets/tilesets/village-tiles.png');
 
-2.2 Map Creation (create scene)
-  const map = this.make.tilemap({ key: 'map' });
-  const tileset = map.addTilesetImage('village-tiles', 'tiles');
-  const groundLayer = map.createLayer('Ground', tileset, 0, 0);
-  const wallLayer = map.createLayer('Walls', tileset, 0, 0);
-  const objectLayer = map.createLayer('Objects', tileset, 0, 0);
-  wallLayer.setCollisionByExclusion([-1]);
+2. Tech Stack & Dependencies
 
-2.3 Tiled Layer Structure
-Layer Name	Type	Purpose
-Ground	Tile Layer	Grass, paths, plaza tiles
-Walls	Tile Layer (collision)	Boundary walls, fences, buildings
-Objects	Tile Layer	Trees, benches, decorations
-Buildings	Tile Layer	Task houses, shop building
-Upgrade	Tile Layer (dynamic)	Upgradeable tiles (flowers, lamps, etc.)
-NPCs	Object Layer	NPC spawn points with properties
-Spawn	Object Layer	Player spawn point
+Core
+  - Phaser 3 (loaded via CDN)
+  - JavaScript in browser (no bundler; scripts loaded globally via <script> tags)
 
-3. Map Design Specifications
-3.1 Map Dimensions
-    • Map size: 25 x 20 tiles
-    • Tile size: 32 x 32 pixels
-    • World pixel size: 800 x 640 pixels
-    • Camera: follows player, clamped to world bounds
+UI
+  - Phaser DOM Elements (dom: { createContainer: true }) for popup forms
 
-3.2 Task House Positions (tile coordinates)
-House	Task	Tile X,Y	NPC Patrol
-House 1	Define Problem Statement	4, 4	3–5, 6
-House 2	Empathize & Story	20, 4	19–21, 6
-House 3	Find a User + Draw	4, 12	3–5, 14
-House 4	Sad/Happy Space	20, 12	19–21, 14
-House 5	My Product Will Help	12, 4	11–13, 6
-Shop	Upgrade Zone Shop	21, 16	20–22, 18
+Export
+  - jsPDF (loaded via CDN) for PDF report generation
 
-3.3 Player Spawn
-    • Spawn position: tile 12, 18 (bottom-center)
-    • Guide NPC stands at tile 12, 16 and walks one tile forward on game start
+State & Events
+  - Global state object: src/data/gameState.js
+  - Global event emitter: src/utils/EventBus.js
 
-4. NPC System
-4.1 NPC Types
-NPC Type	Count	Behaviour
-Guide NPC	1	Walks toward player at spawn, triggers welcome dialog, stays near entrance
-Task NPCs	5	Patrol 2–3 tiles in front of assigned house. Show ! bubble. Trigger task panel on interact.
-Shopkeeper NPC	1	Stands at shop door. Opens upgrade shop panel on interact.
-Villager NPCs	3–4	Random idle walk on paths and benches. No interaction. Add world life.
 
-4.2 NPC Interaction Flow
-    1. Player walks near NPC (within 1 tile radius)
-    2. NPC shows '!' speech bubble above head
-    3. Player presses Spacebar or E to interact
-    4. Phaser emits 'npc:interact' event with npcId
-    5. UIManager opens corresponding task panel
+3. Project Layout (Important Files)
 
-5. Task Panel System
-5.1 Panel Architecture
-Each task panel is a Phaser DOM element (this.add.dom) overlaid on the game canvas. The game input is disabled while a panel is open. Panels are built as HTML/CSS components injected into the DOM.
+Entry
+  - index.html
+      Loads Phaser + jsPDF from CDNs, then loads all game scripts in the correct order.
+  - main.js
+      Builds Phaser config and creates the Phaser.Game instance.
 
-5.2 Panel Components by Task
-Task	Panel Name	Key UI Components
-Task 1	ProblemStatement	Welcome message, single text field, submit button
-Task 2	EmpathizeDefine	6-question form (Who, What, When, Where, How, Why)
-Task 3a	FindAUser	6-question form + canvas draw area
-Task 3b	SadHappySpace	Two canvas areas (sad + happy) with text/draw toggle
-Task 4	MyProductWillHelp	Problem selection form inside fixed map boundary
+Scenes
+  - src/scenes/BootScene.js
+  - src/scenes/CharSelectScene.js
+  - src/scenes/GameScene.js
+  - src/scenes/UIScene.js
+  - src/scenes/FootballScene.js
+  - src/scenes/MazeScene.js
+  - src/scenes/CompleteScene.js
 
-5.3 Points Award on Completion
-Task	Points Awarded	Trigger
-Task 1 — Problem Statement	20 pts	On valid text submit
-Task 2 — Empathize Story	30 pts	All 6 fields filled
-Task 3a — Find a User	30 pts + 10 bonus	6 fields + drawing submitted
-Task 3b — Sad/Happy Canvas	25 pts	Both canvases submitted
-Task 4 — My Product Helps	35 pts	Problem selection submitted
+Game objects & UI
+  - src/objects/Player.js
+  - src/objects/NPC.js
+  - src/ui/HUD.js
+  - src/ui/TaskPanel.js
+  - src/ui/ShopPanel.js
 
-6. Upgrade System
-6.1 Upgrade Data Model
-Each upgrade is a JS object stored in the GameState:
+Data
+  - src/data/tasks.js (task definitions + TASK_ORDER)
+  - src/data/gameState.js (points, completion, answers/drawings storage)
+  - src/data/upgrades.js (upgrade catalogue)
 
-  { id: 'flowers', label: 'Plant Flowers', cost: 10, purchased: false,
-    tileX: 18, tileY: 15, tileId: 42, layer: 'Upgrade' }
+Procedural generation
+  - src/scripts/TilesetGenerator.js (generates tiles + Tiled-style map JSON + Zones)
+  - src/scripts/SpriteGenerator.js (generates player/NPC spritesheets)
 
-6.2 Upgrade Catalogue
-Upgrade	Cost	Map Change
-Plant Flowers	10 pts	Soil tiles → flower tiles in upgrade zone
-Water Garden	15 pts	Dry grass tiles → lush green tiles
-Add Park Bench	10 pts	Empty tile → bench tile + villager NPC spawns
-Add a Pet	20 pts	Cat or dog sprite NPC appears near fountain
-Upgrade Fountain	30 pts	Small fountain tile → large animated fountain
-Add Street Lamps	15 pts	Dark path tiles → lamp tile with glow overlay
-Paint a Mural	25 pts	Plain wall tile → painted mural tile
+Note
+  - scripts/build-world.js currently exists but is empty.
 
-6.3 Tile Swap on Purchase
-When a student buys an upgrade, putTileAt() is called on the Upgrade layer to swap the tile ID:
 
-  upgradeLayer.putTileAt(newTileId, upgrade.tileX, upgrade.tileY);
+4. Boot & Scene Flow
 
-7. HUD (Heads-Up Display)
-    • Rendered as a fixed Phaser container (setScrollFactor(0)) at top of screen
-    • Shows: star icon + point total | task progress bar (0/5 tasks)
-    • Points counter animates (tween) when points are added
-    • Task progress bar fills one segment per completed task
+4.1 Scene list (registered in main.js)
+  - BootScene
+  - CharSelectScene
+  - GameScene
+  - UIScene (runs in parallel with GameScene)
+  - FootballScene (Task 2)
+  - MazeScene (Task 5)
+  - CompleteScene
 
-8. Scene Structure
-Scene	Responsibility
-BootScene	Load minimal assets, show loading bar
-CharSelectScene	Male / female character selection UI
-GameScene	Main world: map, player, NPCs, camera, HUD, upgrades
-UIScene	Runs in parallel. Handles all task panels and shop UI
-CompleteScene	Shown after all 5 tasks done. Celebrates completion.
+4.2 Runtime flow
+  1) BootScene
+      - Preloads required external images (buildings/props + spritesheets)
+      - Generates the tileset and tilemap JSON procedurally
+      - Generates character spritesheets and utility textures
+      - Creates animations
+      - Starts CharSelectScene
+  2) CharSelectScene
+      - Sets gameState.playerGender
+      - Starts GameScene + UIScene
+  3) GameScene
+      - Builds the hub world, player, collisions, NPCs
+      - Builds story Zones and enforces sequential unlocking
+  4) UIScene
+      - Shows HUD
+      - Opens TaskPanel/ShopPanel when EventBus emits npc:interact
+  5) FootballScene / MazeScene
+      - Mini-game tasks
+      - Save answers, award points, complete task, return to hub
+  6) CompleteScene
+      - Final congratulations view
+      - Auto-download PDF once + provides a Download button
 
-9. File / Folder Structure
-src/
-  scenes/  BootScene.js | CharSelectScene.js | GameScene.js | UIScene.js
-  objects/ Player.js | NPC.js | Villager.js
-  ui/      TaskPanel.js | ShopPanel.js | HUD.js
-  data/    upgrades.js | tasks.js | gameState.js
-  utils/   EventBus.js | SaveManager.js
-assets/
-  map/     village.json (Tiled export)
-  tilesets/village-tiles.png
-  sprites/ player-male.png | player-female.png | npcs.png | pets.png
+
+5. Map & World System (Procedural Tiled JSON)
+
+5.1 Core constants
+  - TILE_SIZE = 32
+  - MAP_COLS = 40
+  - MAP_ROWS = 30
+
+5.2 Layers created (Tiled-style)
+  - Ground (visual)
+  - Walls (collision)
+  - Objects (collision)
+  - Buildings (kept for layer-index compatibility; not used for story progression)
+  - Upgrade (tiles swapped by upgrades)
+  - NPCs (objectgroup)
+  - Spawn (objectgroup)
+  - Zones (objectgroup; story locations)
+
+5.3 High-resolution image objects
+Instead of putting all buildings into a tile layer, TilesetGenerator creates a list of image objects (house1-house5, shop tent, decor)
+and stores them in the Scene registry. GameScene reads these and instantiates them as images with physics collision zones.
+
+5.4 Collision
+  - Walls layer + Objects layer are collidable
+  - Static image objects have custom collision bounds
+  - Player uses a “legs-only” hitbox for better feel (Player.body size/offset)
+
+
+6. Story Progression System (Zones)
+
+6.1 Why Zones
+The story is location-driven. Only the next unlocked story location should be active.
+To achieve this, a dedicated Tiled object layer called "Zones" is generated and consumed by GameScene.
+
+6.2 Zone object properties
+Each zone rectangle contains properties:
+  - taskId   (string, required)
+  - label    (string, shown in on-screen prompt)
+  - mode     ("panel" or "scene")
+  - sceneKey (only for mode="scene")
+
+6.3 Active task logic
+  - TASK_ORDER defines the fixed order of tasks.
+  - The active task is the first task in TASK_ORDER that is:
+      unlocked AND not complete
+  - Only the active task’s zone is actionable.
+
+6.4 Interaction
+  - Player emits scene event 'player:interact' when E or Space is pressed.
+  - GameScene handles the event:
+      a) if the player is inside the active Zone → trigger the Zone
+      b) else interact with the nearest NPC (optional fallback)
+
+6.5 On-screen prompt
+When player is inside the active Zone and movement is enabled, a text prompt appears:
+  “Press E: <Zone Label>”
+
+
+7. Tasks (8-Step Story)
+
+7.1 Task order
+Defined in src/data/tasks.js:
+  TASK_ORDER = [
+    'task1',  // Home
+    'task2',  // Playground football
+    'task3a', // Classroom user profile + drawing
+    'task3b', // Corridor sad/happy
+    'task5',  // Maze
+    'task6',  // Park ideation + drawing
+    'task7',  // School validation
+    'task4'   // Landmark final idea name
+  ]
+
+7.2 Task UI mode summary
+  - Panel (TaskPanel): task1, task3a, task3b, task6, task7, task4
+  - Scene (mini-game): task2 (FootballScene), task5 (MazeScene)
+
+7.3 Storage rules (what gets saved)
+For every task (panel or scene):
+  - Raw answers are stored at:
+      gameState.taskAnswers[taskId]
+
+Drawings (when applicable):
+  - task3a user drawing:
+      gameState.userProfile.drawingData
+      gameState.taskDrawings['task3a']
+  - task3b sad/happy drawings:
+      gameState.sadHappyData.sad.drawingData
+      gameState.sadHappyData.happy.drawingData
+      (also stored for convenience as taskDrawings['task3b_sad'] / ['task3b_happy'])
+  - task6 idea drawing:
+      gameState.taskDrawings['task6']
+
+7.4 Points & completion
+  - Each task has a points value in src/data/tasks.js
+  - Some tasks award bonus points when a drawing is provided (task3a, task6)
+  - Completion is tracked by gameState.tasksComplete
+
+
+8. Global State (gameState)
+
+File: src/data/gameState.js
+
+Core fields
+  - points
+  - tasksComplete[]
+  - upgradesPurchased[]
+  - playerGender
+
+Generic export-focused storage
+  - taskAnswers: { [taskId]: { ...answers } }
+  - taskDrawings: { [taskId or key]: dataUrl }
+
+Structured fields used by panels/summary
+  - problemStatement
+  - empathyStory
+  - userProfile
+  - sadHappyData
+  - finalStatement
+
+Unlocking helpers
+  - isTaskUnlocked(taskId): true if taskId is task1 OR previous task in TASK_ORDER is complete
+  - allTasksComplete: true if every taskId in TASK_ORDER is complete
+
+
+9. EventBus (Cross-Scene Events)
+
+File: src/utils/EventBus.js
+
+Important events
+  - npc:interact
+      Emitted by NPCs or Zones; UIScene listens and opens TaskPanel/ShopPanel.
+  - panel:close
+      Emitted when a panel closes; GameScene uses this to re-enable movement.
+  - task:completed
+      Emitted by gameState.completeTask(); HUD uses this to update progress.
+  - points:changed / points:added
+      Used by HUD and the floating “+points” effect.
+
+
+10. UI System (HUD + Panels)
+
+10.1 UIScene
+UIScene runs in parallel with the world. It creates the HUD and opens panels based on EventBus events.
+It ensures listeners are cleaned up on scene shutdown to prevent duplication after returning from mini-games.
+
+10.2 HUD
+File: src/ui/HUD.js
+Shows:
+  - total points
+  - task progress (completed/total)
+Updates via EventBus events.
+
+10.3 TaskPanel
+File: src/ui/TaskPanel.js
+Implements multiple panel “templates” (task1, task3a, task3b, task4) plus a generic form builder.
+Supports:
+  - validation based on minLength/minWords rules
+  - optional drawing canvas (single-canvas tasks)
+  - sad/happy split drawing with pointer events
+On submit:
+  - stores answers in taskAnswers
+  - stores drawings (if present)
+  - awards points and completes the task
+
+Note: Task 2 is completed in FootballScene. A legacy Task 2 panel builder still exists but is not used in the current zone-based flow.
+
+
+11. Mini-Game Scenes
+
+11.1 FootballScene (Task 2)
+File: src/scenes/FootballScene.js
+  - Player must touch each of 4 corner “goals”
+  - Each goal opens a DOM prompt and stores an answer
+  - After all 4 are answered:
+      - saves answers into gameState.taskAnswers['task2']
+      - awards points
+      - completes the task and returns to the hub
+
+11.2 MazeScene (Task 5)
+File: src/scenes/MazeScene.js
+  - Simple rectangle maze made from static wall rectangles
+  - Player reaches 3 checkpoints
+  - Each checkpoint opens a DOM prompt and stores an answer
+  - After all 3 are answered:
+      - saves answers into gameState.taskAnswers['task5']
+      - awards points
+      - completes the task and returns to the hub
+
+
+12. PDF Export
+
+File: src/scenes/CompleteScene.js
+
+Trigger
+  - Auto-download once when entering CompleteScene
+  - Manual download via “Download PDF Report” button
+
+Content
+  - Title page:
+      Date, total points, quick summary
+  - One page per task in TASK_ORDER:
+      - key/value text from gameState.taskAnswers[taskId]
+      - drawings embedded when available
+
+Implementation details
+  - Uses jsPDF (window.jspdf.jsPDF) loaded from CDN in index.html
+  - Adds pages automatically when content exceeds page height
+  - Embeds images via addImage(dataUrl, 'PNG', ...)
+  - Filename includes user name + date
+
+
+13. Assets
+
+13.1 Assets loaded from files (BootScene preload)
+Buildings/props (PNG)
+  - assets/craftpix-net-504452-free-village-pixel-tileset-for-top-down-defense/...
+
+Spritesheets (PNG + fixed frame sizes)
+  - assets/bull.png      frameWidth=128, frameHeight=128
+  - assets/hotdogs.png   frameWidth=50,  frameHeight=45
+  - assets/hugedogs.png  frameWidth=22,  frameHeight=18
+
+Scenery sheet (PNG)
+  - assets/Nateonus8x8PixelPack/FullSpriteSheetsNoPadding/Scenery/Grass&StoneScenery.png
+
+13.2 Procedural assets (generated at runtime)
+  - Tileset texture: generated by TilesetGenerator (Canvas)
+  - Map JSON: generated by TilesetGenerator
+  - Player/NPC spritesheets: generated by SpriteGenerator (Canvas)
+  - Exclamation marker: generated by SpriteGenerator
+  - Pet sheets: generated by SpriteGenerator
+
+
+14. Customization Guide
+
+Change story text / fields / points
+  - Edit src/data/tasks.js
+
+Change where each task happens (zone size/position)
+  - Edit zoneObjects in src/scripts/TilesetGenerator.js
+    (x, y, width, height are in pixels; usually written as tile*32)
+
+Change which tasks open a popup panel vs a new scene
+  - In zoneObjects, set mode='panel' or mode='scene'
+  - For scene zones, set sceneKey to the Phaser scene key
+
+Replace Football goal questions
+  - Edit the goals array in src/scenes/FootballScene.js
+
+Replace Maze checkpoint questions
+  - Edit the checkpoints array in src/scenes/MazeScene.js
+
+Add a new task (high-level steps)
+  1) Add task definition to src/data/tasks.js
+  2) Insert the new taskId into TASK_ORDER
+  3) Add a new zone object in src/scripts/TilesetGenerator.js
+  4) If it needs special UI, add panel logic in src/ui/TaskPanel.js OR create a new Scene file
+  5) Ensure answers/drawings are stored into gameState.taskAnswers/taskDrawings for PDF export
+
+
+15. Known Limitations / Notes
+
+  - No persistence across page refresh (state is in-memory only).
+  - Offline use requires replacing CDN dependencies (Phaser/jsPDF) with local copies.
+  - Upgrade “spawn NPC / spawn pet” logic in GameScene may need alignment with current textures/constructor usage.
+  - FootballScene and MazeScene questions are placeholders by default and should be replaced with final content.

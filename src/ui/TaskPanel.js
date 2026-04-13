@@ -526,81 +526,209 @@ class TaskPanel {
         container.style.flexDirection = 'column';
         container.style.alignItems = 'center';
 
-        const canvas = document.createElement('canvas');
-        canvas.width = 560;
-        canvas.height = 300;
-        canvas.style.cursor = 'crosshair';
-        canvas.style.border = '2px solid #888';
-        canvas.style.borderRadius = '8px';
-        const ctx = canvas.getContext('2d');
+        const canvasWrap = document.createElement('div');
+        canvasWrap.style.position = 'relative';
+        canvasWrap.style.width = '560px';
+        canvasWrap.style.height = '300px';
+        canvasWrap.style.border = '2px solid #888';
+        canvasWrap.style.borderRadius = '8px';
+        canvasWrap.style.overflow = 'hidden';
+        canvasWrap.style.backgroundColor = '#ffffff';
 
-        // Draw background
-        ctx.fillStyle = '#D6E4F0'; // Sad space
-        ctx.fillRect(0, 0, canvas.width / 2, canvas.height);
-        ctx.fillStyle = '#FFF3C4'; // Happy space
-        ctx.fillRect(canvas.width / 2, 0, canvas.width / 2, canvas.height);
-        
-        // Dividing line
-        ctx.fillStyle = '#888';
-        ctx.fillRect(canvas.width / 2 - 1, 0, 2, canvas.height);
+        const baseCanvas = document.createElement('canvas');
+        baseCanvas.width = 560;
+        baseCanvas.height = 300;
+        baseCanvas.style.position = 'absolute';
+        baseCanvas.style.left = '0';
+        baseCanvas.style.top = '0';
+        baseCanvas.style.pointerEvents = 'none';
 
-        // Headers
-        ctx.font = 'bold 18px sans-serif';
-        ctx.fillStyle = '#1A3A5C';
-        ctx.textAlign = 'center';
-        ctx.fillText('😢 Sad Space', canvas.width * 0.25, 25);
-        ctx.fillStyle = '#5C4200';
-        ctx.fillText('😊 Happy Space', canvas.width * 0.75, 25);
+        const drawCanvas = document.createElement('canvas');
+        drawCanvas.width = 560;
+        drawCanvas.height = 300;
+        drawCanvas.style.position = 'absolute';
+        drawCanvas.style.left = '0';
+        drawCanvas.style.top = '0';
+        drawCanvas.style.cursor = 'crosshair';
+        drawCanvas.style.touchAction = 'none';
 
-        container.appendChild(canvas);
+        const baseCtx = baseCanvas.getContext('2d');
+        const drawCtx = drawCanvas.getContext('2d');
+
+        const redrawBase = () => {
+            // Draw background
+            baseCtx.clearRect(0, 0, baseCanvas.width, baseCanvas.height);
+            baseCtx.fillStyle = '#ffffff';
+            baseCtx.fillRect(0, 0, baseCanvas.width, baseCanvas.height);
+
+            // Dividing line
+            baseCtx.fillStyle = '#888';
+            baseCtx.fillRect(baseCanvas.width / 2 - 1, 0, 2, baseCanvas.height);
+
+            // Headers
+            baseCtx.font = 'bold 18px sans-serif';
+            baseCtx.fillStyle = '#1A3A5C';
+            baseCtx.textAlign = 'center';
+            baseCtx.fillText('😢 Sad Space', baseCanvas.width * 0.25, 25);
+            baseCtx.fillStyle = '#5C4200';
+            baseCtx.fillText('😊 Happy Space', baseCanvas.width * 0.75, 25);
+        };
+
+        redrawBase();
+
+        drawCtx.lineJoin = 'round';
+        drawCtx.lineCap = 'round';
+        drawCtx.lineWidth = 3;
+        drawCtx.strokeStyle = '#1d1d1d';
+        drawCtx.globalCompositeOperation = 'source-over';
+
+        this.sadHappyHasSadDrawing = false;
+        this.sadHappyHasHappyDrawing = false;
+
+        let painting = false;
+
+        const getPos = (e) => {
+            const rect = drawCanvas.getBoundingClientRect();
+            return {
+                x: Math.max(0, Math.min(drawCanvas.width, e.clientX - rect.left)),
+                y: Math.max(0, Math.min(drawCanvas.height, e.clientY - rect.top))
+            };
+        };
+
+        const markSide = (x) => {
+            if (x < drawCanvas.width / 2) {
+                this.sadHappyHasSadDrawing = true;
+            } else {
+                this.sadHappyHasHappyDrawing = true;
+            }
+            this.validate();
+        };
+
+        const startDraw = (e) => {
+            e.preventDefault();
+            const pos = getPos(e);
+            painting = true;
+            drawCtx.beginPath();
+            drawCtx.moveTo(pos.x, pos.y);
+            markSide(pos.x);
+        };
+
+        const draw = (e) => {
+            if (!painting) return;
+            e.preventDefault();
+            const pos = getPos(e);
+            drawCtx.lineTo(pos.x, pos.y);
+            drawCtx.stroke();
+            markSide(pos.x);
+        };
+
+        const stopDraw = () => {
+            painting = false;
+        };
+
+        drawCanvas.addEventListener('pointerdown', startDraw);
+        drawCanvas.addEventListener('pointermove', draw);
+        drawCanvas.addEventListener('pointerup', stopDraw);
+        drawCanvas.addEventListener('pointerleave', stopDraw);
+        drawCanvas.addEventListener('pointercancel', stopDraw);
+
+        canvasWrap.appendChild(baseCanvas);
+        canvasWrap.appendChild(drawCanvas);
+        container.appendChild(canvasWrap);
         
         // Toolbar
         const toolbar = document.createElement('div');
         toolbar.style.marginTop = '10px';
         toolbar.style.display = 'flex';
         toolbar.style.gap = '10px';
+        toolbar.style.alignItems = 'center';
 
-        const textBtn = document.createElement('button');
-        textBtn.innerText = 'T';
-        textBtn.title = 'Add Text';
-        textBtn.onclick = (e) => {
+        const pencilBtn = document.createElement('button');
+        pencilBtn.innerText = 'Pencil';
+        pencilBtn.type = 'button';
+        pencilBtn.onclick = (e) => {
             e.preventDefault();
-            const text = prompt('Enter text:');
-            if (text) {
-                const x = prompt('Enter X position (0-560):', 280);
-                const y = prompt('Enter Y position (0-300):', 150);
-                ctx.font = '16px sans-serif';
-                ctx.fillStyle = '#000';
-                ctx.fillText(text, parseInt(x), parseInt(y));
-            }
+            drawCtx.globalCompositeOperation = 'source-over';
+            drawCtx.strokeStyle = '#1d1d1d';
+            drawCtx.lineWidth = 3;
         };
-        toolbar.appendChild(textBtn);
+        toolbar.appendChild(pencilBtn);
+
+        const eraserBtn = document.createElement('button');
+        eraserBtn.innerText = 'Eraser';
+        eraserBtn.type = 'button';
+        eraserBtn.onclick = (e) => {
+            e.preventDefault();
+            drawCtx.globalCompositeOperation = 'destination-out';
+            drawCtx.lineWidth = 14;
+        };
+        toolbar.appendChild(eraserBtn);
 
         const clearBtn = document.createElement('button');
         clearBtn.innerText = 'Clear All';
+        clearBtn.type = 'button';
         clearBtn.onclick = (e) => {
             e.preventDefault();
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            // Redraw background
-            ctx.fillStyle = '#D6E4F0';
-            ctx.fillRect(0, 0, canvas.width / 2, canvas.height);
-            ctx.fillStyle = '#FFF3C4';
-            ctx.fillRect(canvas.width / 2, 0, canvas.width / 2, canvas.height);
-            ctx.fillStyle = '#888';
-            ctx.fillRect(canvas.width / 2 - 1, 0, 2, canvas.height);
-            ctx.font = 'bold 18px sans-serif';
-            ctx.fillStyle = '#1A3A5C';
-            ctx.textAlign = 'center';
-            ctx.fillText('😢 Sad Space', canvas.width * 0.25, 25);
-            ctx.fillStyle = '#5C4200';
-            ctx.fillText('😊 Happy Space', canvas.width * 0.75, 25);
+            redrawBase();
+            drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+            this.sadHappyHasSadDrawing = false;
+            this.sadHappyHasHappyDrawing = false;
+            this.validate();
+            // Reset to pencil after clearing
+            drawCtx.globalCompositeOperation = 'source-over';
+            drawCtx.strokeStyle = '#1d1d1d';
+            drawCtx.lineWidth = 3;
         };
         toolbar.appendChild(clearBtn);
         container.appendChild(toolbar);
 
+        // Notes area
+        const notes = document.createElement('div');
+        notes.style.display = 'grid';
+        notes.style.gridTemplateColumns = '1fr 1fr';
+        notes.style.gap = '12px';
+        notes.style.marginTop = '14px';
+        notes.style.width = '100%';
+
+        const makeNotesColumn = (title, fields, group, color) => {
+            const col = document.createElement('div');
+            col.style.display = 'flex';
+            col.style.flexDirection = 'column';
+            col.style.gap = '6px';
+
+            const heading = document.createElement('div');
+            heading.innerText = title;
+            heading.style.fontWeight = 'bold';
+            heading.style.color = color;
+            heading.style.textShadow = '0 1px 2px rgba(0,0,0,0.35)';
+            col.appendChild(heading);
+
+            fields.forEach(field => {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.placeholder = field.placeholder;
+                input.style.width = '100%';
+                input.style.padding = '8px';
+                input.style.borderRadius = '6px';
+                input.style.border = '1px solid #777';
+                input.style.backgroundColor = 'rgba(255,255,255,0.9)';
+                input.style.color = '#222';
+                input.oninput = () => this.validate();
+                this.inputs[field.key] = { element: input, config: { group, minLength: 2 } };
+                col.appendChild(input);
+            });
+
+            return col;
+        };
+
+        notes.appendChild(makeNotesColumn('Sad notes', this.taskData.sadFields || [], 'sad', '#E7F2FF'));
+        notes.appendChild(makeNotesColumn('Happy notes', this.taskData.happyFields || [], 'happy', '#FFF2C6'));
+        container.appendChild(notes);
+
         form.appendChild(container);
-        this.drawingCanvas = canvas; // For validation
-        this.inputs['sadhappy'] = { element: canvas, config: { minLength: 1 } }; // Dummy input for validation
+        this.sadHappyBaseCanvas = baseCanvas;
+        this.sadHappyDrawCanvas = drawCanvas;
+        this.sadHappyCanvas = drawCanvas;
     }
 
     buildTask4Panel(form) {
@@ -609,39 +737,42 @@ class TaskPanel {
         this.rootDiv.style.color = '#584B3A';
         this.rootDiv.style.fontFamily = 'serif';
 
-        this.headerEl.innerHTML = '🎓 Certificate of Completion 🎓';
+        this.headerEl.innerHTML = '🏆 Landmark Reward 🏆';
         this.headerEl.style.color = '#8B4513';
         this.headerEl.style.borderBottom = '2px solid #D3C0A0';
         this.headerEl.style.paddingBottom = '10px';
         this.msgEl.style.display = 'none';
 
-        const template = document.createElement('p');
-        template.style.fontSize = '18px';
-        template.style.lineHeight = '1.8';
-        template.style.marginTop = '30px';
-        template.style.textAlign = 'center';
+        const intro = document.createElement('p');
+        intro.style.fontSize = '18px';
+        intro.style.lineHeight = '1.8';
+        intro.style.marginTop = '24px';
+        intro.style.textAlign = 'center';
+        intro.innerHTML = `Give your final idea a name. This will be saved in your report.`;
+        form.appendChild(intro);
 
-        const userName = `<strong>${gameState.userProfile.name || 'My user'}</strong>`;
-        template.innerHTML = `${userName} needs a way to <span contenteditable="true" class="editable-span">solve their problem</span> because <span contenteditable="true" class="editable-span">of its impact</span>.`;
+        const wrap = document.createElement('div');
+        wrap.style.marginTop = '18px';
 
-        const style = document.createElement('style');
-        style.textContent = `
-            .editable-span {
-                background-color: #F0EAD6;
-                padding: 4px 8px;
-                border-radius: 4px;
-                outline: none;
-                border-bottom: 2px dashed #B0A080;
-            }
-            .editable-span:focus {
-                background-color: #fff;
-                box-shadow: 0 0 0 2px #B0A080;
-            }
-        `;
-        document.head.appendChild(style);
+        const lbl = document.createElement('label');
+        lbl.innerText = 'Final idea name';
+        lbl.style.display = 'block';
+        lbl.style.fontWeight = 'bold';
+        lbl.style.marginBottom = '8px';
+        wrap.appendChild(lbl);
 
-        form.appendChild(template);
-        this.inputs['final'] = { element: template, config: { minLength: 20 } };
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.placeholder = 'Type the final idea name...';
+        inp.style.width = '100%';
+        inp.style.padding = '10px';
+        inp.style.borderRadius = '6px';
+        inp.style.border = '2px solid #D3C0A0';
+        inp.style.boxSizing = 'border-box';
+        wrap.appendChild(inp);
+        form.appendChild(wrap);
+
+        this.inputs['final'] = { element: inp, config: { minLength: 2 } };
 
         const checkboxWrap = document.createElement('div');
         checkboxWrap.style.marginTop = '30px';
@@ -762,17 +893,26 @@ class TaskPanel {
         let valid = true;
         
         if (this.taskData.isSadHappy) {
-            // At least one sad and one happy entry required
-            let hasSad = false, hasHappy = false;
-            Object.values(this.inputs).forEach(({element, config}) => {
-                if (config.key.startsWith('sad') && element.value.trim().length > 3) hasSad = true;
-                if (config.key.startsWith('happy') && element.value.trim().length > 3) hasHappy = true;
+            // At least one sad and one happy entry required (notes or drawing)
+            let hasSadText = false;
+            let hasHappyText = false;
+            Object.values(this.inputs).forEach(({ element, config }) => {
+                if (!config || !element) return;
+                const value = (element.value || '').trim();
+                if (config.group === 'sad' && value.length > 0) hasSadText = true;
+                if (config.group === 'happy' && value.length > 0) hasHappyText = true;
             });
+
+            const hasSad = hasSadText || !!this.sadHappyHasSadDrawing;
+            const hasHappy = hasHappyText || !!this.sadHappyHasHappyDrawing;
             valid = hasSad && hasHappy;
         } else if (this.taskData.isFinal) {
             const finalEl = this.inputs['final'].element;
             const finalText = (finalEl.value || finalEl.textContent || '').trim();
-            valid = finalText.length > 10 && this.inputs['confirm'].element.checked;
+            const minLen = (this.inputs['final'] && this.inputs['final'].config && typeof this.inputs['final'].config.minLength === 'number')
+                ? this.inputs['final'].config.minLength
+                : 10;
+            valid = finalText.length >= minLen && this.inputs['confirm'].element.checked;
         } else {
             // Standard validation
             Object.values(this.inputs).forEach(({element, config}) => {
@@ -796,7 +936,25 @@ class TaskPanel {
             ans[k] = (el.value || el.textContent || '').trim();
         });
 
+        // Always store raw answers for export/reporting
+        if (typeof gameState.taskAnswers !== 'object' || !gameState.taskAnswers) {
+            gameState.taskAnswers = {};
+        }
+        gameState.taskAnswers[this.taskId] = { ...ans };
+
         let pointsAwarded = this.taskData.points;
+
+        // Optional single-canvas drawing support (used by task3a and task6)
+        let singleDrawingData = null;
+        if (this.drawingCanvas) {
+            const data = this.drawingCanvas.toDataURL();
+            // rudimentary "is empty" check by size (blank is small base64)
+            if (data && data.length > 2000) singleDrawingData = data;
+        }
+
+        if (typeof gameState.taskDrawings !== 'object' || !gameState.taskDrawings) {
+            gameState.taskDrawings = {};
+        }
 
         if (this.taskId === 'task1') {
             gameState.problemStatement = ans;
@@ -805,19 +963,55 @@ class TaskPanel {
         } else if (this.taskId === 'task3a') {
             gameState.userProfile = ans;
             // Add bonus if canvas used
-            if (this.drawingCanvas) {
-                 const data = this.drawingCanvas.toDataURL();
-                 // rudimentary "is empty" check by size (blank is small base64)
-                 if (data.length > 2000) {
-                     gameState.userProfile.drawingData = data;
-                     pointsAwarded += this.taskData.bonusPoints;
-                 }
+            if (singleDrawingData) {
+                gameState.userProfile.drawingData = singleDrawingData;
+                gameState.taskDrawings[this.taskId] = singleDrawingData;
+                if (typeof this.taskData.bonusPoints === 'number') pointsAwarded += this.taskData.bonusPoints;
             }
         } else if (this.taskId === 'task3b') {
             gameState.sadHappyData.sad.texts = [ans.sad1, ans.sad2, ans.sad3];
             gameState.sadHappyData.happy.texts = [ans.happy1, ans.happy2, ans.happy3];
+
+            if (this.sadHappyBaseCanvas && this.sadHappyDrawCanvas) {
+                const width = this.sadHappyDrawCanvas.width;
+                const height = this.sadHappyDrawCanvas.height;
+                const half = Math.floor(width / 2);
+
+                const composite = document.createElement('canvas');
+                composite.width = width;
+                composite.height = height;
+                const compositeCtx = composite.getContext('2d');
+                compositeCtx.drawImage(this.sadHappyBaseCanvas, 0, 0);
+                compositeCtx.drawImage(this.sadHappyDrawCanvas, 0, 0);
+
+                const leftCanvas = document.createElement('canvas');
+                leftCanvas.width = half;
+                leftCanvas.height = height;
+                leftCanvas.getContext('2d').drawImage(composite, 0, 0, half, height, 0, 0, half, height);
+
+                const rightCanvas = document.createElement('canvas');
+                rightCanvas.width = half;
+                rightCanvas.height = height;
+                rightCanvas.getContext('2d').drawImage(composite, half, 0, half, height, 0, 0, half, height);
+
+                const sadData = this.sadHappyHasSadDrawing ? leftCanvas.toDataURL() : null;
+                const happyData = this.sadHappyHasHappyDrawing ? rightCanvas.toDataURL() : null;
+
+                gameState.sadHappyData.sad.drawingData = sadData;
+                gameState.sadHappyData.happy.drawingData = happyData;
+
+                // Also store for export convenience
+                if (sadData) gameState.taskDrawings['task3b_sad'] = sadData;
+                if (happyData) gameState.taskDrawings['task3b_happy'] = happyData;
+            }
         } else if (this.taskId === 'task4') {
             gameState.finalStatement = ans.final;
+        } else {
+            // Generic tasks (e.g., task6/task7) can optionally have a drawing canvas
+            if (singleDrawingData) {
+                gameState.taskDrawings[this.taskId] = singleDrawingData;
+                if (typeof this.taskData.bonusPoints === 'number') pointsAwarded += this.taskData.bonusPoints;
+            }
         }
 
         const sourcePosition = this.sourceNpc ? { x: this.sourceNpc.x, y: this.sourceNpc.y } : null;

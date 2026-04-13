@@ -14,16 +14,24 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
         this.scene.add.existing(this);
         this.scene.physics.add.existing(this);
         this.body.setImmovable(true);
-        this.body.setSize(20, 20); // generous hit box for interaction
-        this.body.setOffset(6, 12);
+        // generous hit box for interaction (auto-positioned near the feet)
+        const bodyW = 20;
+        const bodyH = 20;
+        const frameW = this.width || 32;
+        const frameH = this.height || 32;
+        this.body.setSize(bodyW, bodyH);
+        this.body.setOffset(Math.floor((frameW - bodyW) / 2), Math.floor(frameH - bodyH));
 
         // Interaction marker (!)
-        this.marker = this.scene.add.sprite(x, y - 32, 'exclamation').setDepth(10);
+        this.markerOffsetY = Math.round((this.height || 32) / 2) + 16;
+        this.marker = this.scene.add.sprite(x, y - this.markerOffsetY, 'exclamation').setDepth(10);
         this.marker.setVisible(false);
-        // Bobbing animation
-        this.scene.tweens.add({
-            targets: this.marker,
-            y: y - 28,
+
+        // Bobbing animation stored on a small state object to avoid tween target issues
+        this.markerBob = { offset: 0 };
+        this.markerTween = this.scene.tweens.add({
+            targets: this.markerBob,
+            offset: 4,
             duration: 500,
             yoyo: true,
             repeat: -1,
@@ -35,7 +43,7 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
         this.currentPatrolIndex = 0;
         this.patrolWaitTime = 0;
         this.targetNode = null;
-        this.speed = 40;
+        this.speed = 90;
         this.facing = 'down';
 
         this.isInteracting = false;
@@ -69,7 +77,11 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
 
     update(time, delta) {
         // Keep marker above head always
-        this.marker.x = this.x;
+        if (this.marker) {
+            const bob = this.markerBob ? this.markerBob.offset : 0;
+            this.marker.x = this.x;
+            this.marker.y = this.y - (this.markerOffsetY || 32) + bob;
+        }
 
         if (this.pulseRing) {
             this.pulseRing.x = this.x;
@@ -85,11 +97,6 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
         // Patrol logic
         if (this.patrolPath.length > 0 && time > this.patrolWaitTime) {
             this.moveToTarget();
-            
-            // Re-sync marker Y base when moving
-            this.scene.tweens.getTweensOf(this.marker).forEach(t => {
-                t.updateTo('y', this.y - 32 + (t.yoyo && t.progress > 0.5 ? 4 : 0));
-            });
         } else {
             this.body.setVelocity(0);
             this.anims.play(`${this.spriteKey}_idle_${this.facing}`, true);
@@ -135,11 +142,11 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
             
             if (this.isRandomPatrol) {
                 this.randomizeTarget();
-                this.patrolWaitTime = this.scene.time.now + 1500 + Math.random() * 2000;
+                this.patrolWaitTime = this.scene.time.now + 700 + Math.random() * 1200;
             } else {
                 this.currentPatrolIndex = (this.currentPatrolIndex + 1) % this.patrolPath.length;
                 this.targetNode = this.patrolPath[this.currentPatrolIndex];
-                this.patrolWaitTime = this.scene.time.now + 2000; // wait 2 seconds
+                this.patrolWaitTime = this.scene.time.now + 900; // shorter pause for snappier patrols
             }
             this.anims.play(`${this.spriteKey}_idle_${this.facing}`, true);
         } else {
@@ -250,7 +257,7 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
     }
 
     showSpeechBubble(text) {
-        this.scene.input.keyboard.enabled = false;
+        this.scene.movementEnabled = false;
         // A simple bubble for non-panel interactions
         const bubble = this.scene.add.container(this.x, this.y - 40);
         const bg = this.scene.add.graphics();
@@ -265,15 +272,17 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
         bg.fillStyle(0xffffff, 0.9);
         bg.fillRoundedRect(bounds.x - 10, bounds.y - 5, bounds.width + 20, bounds.height + 10, 10);
         
-        bubble.add([bg, content]);
+        bubble.add([bg, content].filter(Boolean));
         bubble.setDepth(20);
 
         this.scene.time.delayedCall(3000, () => {
             if (bubble) bubble.destroy();
             this.isInteracting = false;
             // Re-enable player movement after bubble disappears
-            this.scene.input.keyboard.enabled = true; 
-            this.scene.input.keyboard.resetKeys();
+            this.scene.movementEnabled = true;
+            if (this.scene.input.keyboard) {
+                this.scene.input.keyboard.resetKeys();
+            }
         });
     }
 
@@ -346,6 +355,12 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
             this.pulseTween = null;
         }
         this.pulseState = null;
+
+        if (this.markerTween) {
+            this.markerTween.stop();
+            this.markerTween = null;
+        }
+        this.markerBob = null;
 
         if (this.pulseRing) {
             this.pulseRing.destroy();

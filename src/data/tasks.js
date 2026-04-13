@@ -1,10 +1,10 @@
 // ===== tasks.js =====
-// All 5 task definitions — never hardcode task text elsewhere
+// All task definitions — never hardcode task text elsewhere
 
 const TASKS = {
     task1: {
         id: 'task1',
-        title: 'Define the Problem Statement',
+        title: 'Home: Define the Problem Statement',
         icon: '📋',
         housePos: { x: 5, y: 2 },
         npcPos: { x: 7, y: 8 },
@@ -14,11 +14,11 @@ const TASKS = {
         roofColor: 0xc0392b,
         points: 20,
         bonusPoints: 0,
-        greeting: "Hello! Every big solution starts with understanding the problem. Can you tell me what problem you want to solve?",
+        greeting: "At Home: Every big solution starts with understanding the problem. What problem do you want to solve?",
         completeMsg: "Great thinking! You've defined your first problem!",
         dialogue: {
-            intro: "Hello! Every big solution starts with understanding the problem. Can you tell me what problem you want to solve?",
-            complete: "Great thinking! You've defined your first problem! Now go see Azure over there.",
+            intro: "At Home: Every big solution starts with understanding the problem. Can you tell me what problem you want to solve?",
+            complete: "Great thinking! You've defined your first problem! Now head to the Playground.",
             locked: "I'm still thinking about problems... come back later!",
             in_progress: "How's that problem statement coming along?"
         },
@@ -44,37 +44,36 @@ const TASKS = {
 
     task2: {
         id: 'task2',
-        title: 'Empathize & Define Story',
+        title: 'Playground: Football Challenge',
         icon: '📖',
-        housePos: { x: 29, y: 2 },
-        npcPos: { x: 31, y: 8 },
-        npcPatrol: [{ x: 30, y: 8 }, { x: 31, y: 8 }, { x: 32, y: 8 }],
+        housePos: { x: 3, y: 23 },
+        npcPos: { x: 5, y: 24 },
+        npcPatrol: [{ x: 4, y: 24 }, { x: 5, y: 24 }, { x: 6, y: 24 }],
         npcName: 'Azure',
         npcColor: 0x3498db,
         roofColor: 0x2980b9,
         points: 30,
         bonusPoints: 0,
-        greeting: "We are like detectives! We watch and listen to understand how people feel and what they need. Now let's define the problem as a story.",
-        completeMsg: "Amazing detective work! Your empathy story is complete!",
+        greeting: "At the Playground: kick the ball into each goal corner and answer the question after every successful shot.",
+        completeMsg: "Great game! You've finished the football challenge!",
         dialogue: {
-            intro: "We are like detectives! We watch and listen to understand how people feel and what they need. Now let's define the problem as a story.",
-            complete: "Amazing detective work! Now go find Jade and tell her about your user.",
+            intro: "At the Playground: kick the ball into each goal corner and answer the question after every successful shot.",
+            complete: "Great game! Now head to the Classroom.",
             locked: "You need to finish the problem statement with Ruby first.",
             in_progress: "Keep filling out that story, detective!"
         },
-        fields: [
-            { key: 'who', label: 'Who is facing the problem?', placeholder: 'Describe the person or group...', type: 'textarea', minWords: 5, validation: 'words' },
-            { key: 'what', label: 'What is happening to them?', placeholder: 'Describe the situation...', type: 'textarea', minWords: 5, validation: 'words' },
-            { key: 'when', label: 'When does it happen?', placeholder: 'Time of day, specific moment...', type: 'textarea', minWords: 5, validation: 'words' },
-            { key: 'where', label: 'Where does it happen?', placeholder: 'Location or context...', type: 'textarea', minWords: 5, validation: 'words' },
-            { key: 'how', label: 'How does it affect them?', placeholder: 'Emotional or physical impact...', type: 'textarea', minWords: 5, validation: 'words' },
-            { key: 'why', label: 'Why is it a problem?', placeholder: 'What makes this worth solving...', type: 'textarea', minWords: 5, validation: 'words' }
-        ]
+        goalQuestions: [
+            'What is one clear goal for your solution?',
+            'Who benefits most from your solution?',
+            'What obstacle could block your idea?',
+            'How will you know your solution worked?'
+        ],
+        // NOTE: Task 2 is completed in FootballScene; fields are not used.
     },
 
     task3a: {
         id: 'task3a',
-        title: 'Find a User',
+        title: 'Classroom: Pick a User',
         icon: '🎨',
         housePos: { x: 5, y: 13 },
         npcPos: { x: 7, y: 20 },
@@ -84,11 +83,11 @@ const TASKS = {
         roofColor: 0x27ae60,
         points: 30,
         bonusPoints: 10, // for drawing
-        greeting: "Now let's find a real user! Think of someone who actually faces this problem. Tell me about them.",
+        greeting: "In the Classroom: choose (or invent) a user who faces this problem and describe them.",
         completeMsg: "Fantastic! You've created a user profile!",
         dialogue: {
-            intro: "Now let's find a real user! Think of someone who actually faces this problem. Tell me about them.",
-            complete: "Fantastic! You've created a user profile! Now go talk to Sunny.",
+            intro: "In the Classroom: choose (or invent) a user who faces this problem. Tell me about them.",
+            complete: "Nice! Now head to the Corridor.",
             locked: "You need to finish the empathy story with Azure first.",
             in_progress: "Tell me more about this user."
         },
@@ -108,7 +107,7 @@ const TASKS = {
 
     task3b: {
         id: 'task3b',
-        title: 'Sad Space / Happy Space',
+        title: 'Corridor: Sad Space / Happy Space',
         icon: '😊',
         housePos: { x: 30, y: 13 },
         npcPos: { x: 32, y: 19 },
@@ -118,11 +117,11 @@ const TASKS = {
         roofColor: 0xe67e22,
         points: 25,
         bonusPoints: 0,
-        greeting: "Let's understand how your user feels! Show us the sad moments and the happy moments in their life.",
+        greeting: "In the Corridor: show the sad moments and the happy moments in your user's journey.",
         completeMsg: "Great job exploring feelings! Understanding emotions is key to design!",
         dialogue: {
-            intro: "Let's understand how your user feels! Show us the sad moments and the happy moments in their life.",
-            complete: "Great job exploring feelings! Now go see Stella to finalize your idea.",
+            intro: "In the Corridor: show the sad moments and the happy moments in your user's journey.",
+            complete: "Great job! Now head to the Maze.",
             locked: "You need to create a user profile with Jade first.",
             in_progress: "How are those sad and happy spaces coming along?"
         },
@@ -141,9 +140,80 @@ const TASKS = {
         canvasHeight: 200
     },
 
+    task5: {
+        id: 'task5',
+        title: 'Maze: Checkpoints',
+        icon: '🧩',
+        npcName: 'Maze Guide',
+        npcColor: 0x7f8c8d,
+        roofColor: 0x7f8c8d,
+        points: 35,
+        bonusPoints: 0,
+        greeting: "Enter the maze and answer the checkpoint questions.",
+        completeMsg: "You cleared the maze checkpoints!",
+        dialogue: {
+            intro: "Enter the maze and answer the checkpoint questions.",
+            complete: "Great work! Now head to the Park.",
+            locked: "Finish the Corridor task first.",
+            in_progress: "Keep going — you can do it!"
+        },
+        // NOTE: Task 5 is completed in MazeScene; fields are not used.
+    },
+
+    task6: {
+        id: 'task6',
+        title: 'Park: Ideate a Solution',
+        icon: '🌳',
+        npcName: 'Park Ranger',
+        npcColor: 0x16a085,
+        roofColor: 0x16a085,
+        points: 30,
+        bonusPoints: 10,
+        greeting: "In the Park: sketch and describe your solution idea.",
+        completeMsg: "Awesome ideas!",
+        dialogue: {
+            intro: "In the Park: sketch and describe your solution idea.",
+            complete: "Nice! Now head to the School to validate.",
+            locked: "Finish the Maze first.",
+            in_progress: "Keep refining that idea!"
+        },
+        fields: [
+            { key: 'ideaTitle', label: 'Idea title', placeholder: 'Give your idea a short name...', type: 'text', minLength: 2, validation: 'text' },
+            { key: 'ideaDescription', label: 'Describe your idea', placeholder: 'What is it and how does it help?', type: 'textarea', minLength: 10, validation: 'text' }
+        ],
+        hasCanvas: true,
+        canvasWidth: 420,
+        canvasHeight: 260,
+        canvasLabel: 'Draw your idea (optional, earns +10 bonus points)'
+    },
+
+    task7: {
+        id: 'task7',
+        title: 'School: Validate & Improve',
+        icon: '✅',
+        npcName: 'Teacher',
+        npcColor: 0x8e44ad,
+        roofColor: 0x8e44ad,
+        points: 30,
+        bonusPoints: 0,
+        greeting: "At School: validate your idea and decide what to improve.",
+        completeMsg: "Great validation!",
+        dialogue: {
+            intro: "At School: validate your idea and decide what to improve.",
+            complete: "Now head to the Landmark for your final reward.",
+            locked: "Finish the Park ideation first.",
+            in_progress: "Be honest — what can be improved?"
+        },
+        fields: [
+            { key: 'whatWorks', label: 'What works well?', placeholder: 'What is strong about your idea?', type: 'textarea', minLength: 5, validation: 'text' },
+            { key: 'whatToImprove', label: 'What would you improve next?', placeholder: 'What would you change or add?', type: 'textarea', minLength: 5, validation: 'text' },
+            { key: 'whoToAsk', label: 'Who would you ask for feedback?', placeholder: 'Friend, teacher, parent, etc...', type: 'text', minLength: 2, validation: 'text' }
+        ]
+    },
+
     task4: {
         id: 'task4',
-        title: 'My Product Will Help!',
+        title: 'Landmark: Name Your Final Idea',
         icon: '💡',
         housePos: { x: 17, y: 2 },
         npcPos: { x: 19, y: 8 },
@@ -153,18 +223,18 @@ const TASKS = {
         roofColor: 0x8e44ad,
         points: 35,
         bonusPoints: 0,
-        greeting: "You've done amazing detective work! Now it's time to commit. Which problem are YOU going to solve with your product?",
-        completeMsg: "You've committed to your problem! You're a true Design Thinker!",
+        greeting: "At the Landmark: give your final idea a name and claim your reward!",
+        completeMsg: "Your final idea is ready!",
         dialogue: {
-            intro: "You've done amazing detective work! Now it's time to commit. Which problem are YOU going to solve with your product?",
-            complete: "You've committed to your problem! You're a true Design Thinker! The village is proud of you.",
+            intro: "At the Landmark: give your final idea a name and claim your reward!",
+            complete: "You did it! The village is proud of you.",
             locked: "You need to finish the sad/happy space with Sunny first.",
             in_progress: "Ready to commit to your final problem statement?"
         },
         isFinal: true,
-        template: '[User name] needs a way to [solve problem] because [reason/impact].'
+        template: ''
     }
 };
 
 // Task order for sequential unlocking
-const TASK_ORDER = ['task1', 'task2', 'task3a', 'task3b', 'task4'];
+const TASK_ORDER = ['task1', 'task2', 'task3a', 'task3b', 'task5', 'task6', 'task7', 'task4'];

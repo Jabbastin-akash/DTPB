@@ -1,7 +1,21 @@
 // ===== main.js =====
 // Entry point configuring and launching the Phaser game
 
+function patchContainerAdd() {
+    const originalAdd = Phaser.GameObjects.Container.prototype.add;
+    Phaser.GameObjects.Container.prototype.add = function(child) {
+        if (Array.isArray(child)) {
+            const filtered = child.filter(Boolean);
+            if (filtered.length === 0) return this;
+            return originalAdd.call(this, filtered);
+        }
+        if (!child) return this;
+        return originalAdd.call(this, child);
+    };
+}
+
 window.onload = function() {
+    patchContainerAdd();
     const config = {
         type: Phaser.AUTO,
         width: 1024,
@@ -13,7 +27,7 @@ window.onload = function() {
         parent: 'game-container',
         pixelArt: true, // Crucial for sharp pixel art
         backgroundColor: '#1a1a2e',
-        scene: [BootScene, CharSelectScene, GameScene, UIScene, CompleteScene],
+        scene: [BootScene, CharSelectScene, GameScene, UIScene, FootballScene, MazeScene, CompleteScene],
         physics: {
             default: 'arcade',
             arcade: {
@@ -26,5 +40,5 @@ window.onload = function() {
         }
     };
 
-    const game = new Phaser.Game(config);
+    globalThis.game = new Phaser.Game(config);
 };

@@ -12,13 +12,18 @@ class UIScene extends Phaser.Scene {
 
         // Listen for interaction events
         EventBus.on('npc:interact', this.handleInteraction, this);
+
+        // Avoid listener buildup if UIScene is stopped/restarted (football/maze scenes)
+        this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+            EventBus.off('npc:interact', this.handleInteraction, this);
+        });
     }
 
     handleInteraction(data) {
         // Check if an existing panel is open
         if (this.currentPanel) return;
 
-        const { npcId, taskId, name, greeting, npc } = data;
+        const { npcId, taskId, greeting, npc } = data;
 
         if (npcId === 'shopkeeper') {
             this.currentPanel = new ShopPanel(this, this.cameras.main.width / 2, this.cameras.main.height / 2);

@@ -7,6 +7,9 @@ class GameScene extends Phaser.Scene {
     }
 
     create() {
+        this.movementEnabled = true;
+        this.roamers = [];
+        this._celebrationRunning = false;
         // --- Map & Layers ---
         this.map = this.make.tilemap({ key: 'map' });
         const map = this.map;
@@ -34,9 +37,10 @@ class GameScene extends Phaser.Scene {
         this.imageItems = [];
 
         imageObjectsData.forEach(obj => {
-            const img = this.add.image(obj.x, obj.y, obj.key).setOrigin(0, 0);
+            const img = this.add.sprite(obj.x, obj.y, obj.key).setOrigin(0, 0);
             if (obj.width) img.displayWidth = obj.width;
             if (obj.height) img.displayHeight = obj.height;
+            if (obj.anim) img.play(obj.anim);
             
             const h = obj.height || img.height || 32;
             // Sorting based on the very bottom of the image
@@ -67,8 +71,6 @@ class GameScene extends Phaser.Scene {
         // Set World Bounds
         this.physics.world.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
 
-        this.createShopZone();
-
         this.applyPathEdges();
 
         // Collision
@@ -83,6 +85,12 @@ class GameScene extends Phaser.Scene {
         const spawnPoint = map.findObject('Spawn', obj => obj.name === 'spawn');
         this.player = new Player(this, spawnPoint ? spawnPoint.x + 16 : 400, spawnPoint ? spawnPoint.y + 16 : 600);
         this.physics.add.collider(this.player, this.wallsLayer);
+
+        this.createShopZone();
+
+        // Ensure keyboard input is enabled after scene transitions
+        this.input.keyboard.enabled = true;
+        this.input.keyboard.resetKeys();
 
         // Camera setup
         this.cameras.main.startFollow(this.player, true, 0.05, 0.05);
@@ -126,7 +134,17 @@ class GameScene extends Phaser.Scene {
             // Overlapping enables the marker, but Space/E handles the actual interaction.
         });
 
+        // --- Story Zones (locations) ---
+        this.createStoryZones();
+
         this.events.on('player:interact', () => {
+             // Zones take priority over NPCs (so the story flow is location-driven)
+             const activeZone = this.getActiveZoneForPlayer();
+             if (activeZone) {
+                 this.triggerStoryZone(activeZone);
+                 return;
+             }
+
              // Find closest NPC
              let closest = null;
              let minDist = 48; // Max interaction distance
@@ -142,21 +160,31 @@ class GameScene extends Phaser.Scene {
              if (closest) {
                  const openedPanel = closest.interact(this.player);
                  if (openedPanel) {
-                     this.input.keyboard.enabled = false; // Disable game movement while panel open
+                     this.movementEnabled = false; // Disable game movement while panel open
+                     this.input.keyboard.resetKeys();
                  }
              }
         });
 
         // Re-enable input after panel close
-        EventBus.on('panel:close', () => {
-            this.input.keyboard.enabled = true;
+        this._onPanelClose = () => {
+            this.movementEnabled = true;
             this.input.keyboard.resetKeys();
-        });
+        };
+        EventBus.on('panel:close', this._onPanelClose);
 
         // Apply any pre-purchased upgrades
         EventBus.on('upgrade:purchased', this.applyUpgrade, this);
         EventBus.on('task:completed', this.onTaskComplete, this);
         EventBus.on('points:added', this.onPointsAdded, this);
+
+        // Prevent EventBus listener buildup when scene restarts (e.g., football/maze scenes)
+        this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+            if (this._onPanelClose) EventBus.off('panel:close', this._onPanelClose);
+            EventBus.off('upgrade:purchased', this.applyUpgrade, this);
+            EventBus.off('task:completed', this.onTaskComplete, this);
+            EventBus.off('points:added', this.onPointsAdded, this);
+        });
 
         // If tasks pre-completed (e.g., loaded save state), apply markers
         gameState.tasksComplete.forEach(tId => this.markTaskHouse({ taskId: tId }));
@@ -200,22 +228,136 @@ class GameScene extends Phaser.Scene {
     update(time, delta) {
         if (this.player) this.player.update();
         this.updateMissionGuider();
+        this.updateZonePrompt();
+        this.updateRoamers(time);
+    }
+
+    getActiveTaskId() {
+        if (typeof TASK_ORDER === 'undefined' || !Array.isArray(TASK_ORDER)) return null;
+        for (const taskId of TASK_ORDER) {
+            if (!gameState.isTaskComplete(taskId) && gameState.isTaskUnlocked(taskId)) return taskId;
+        }
+        return null;
+    }
+
+    createStoryZones() {
+        this.storyZones = [];
+        this.storyZonesByTaskId = {};
+
+        const layer = this.map.getObjectLayer('Zones');
+        if (!layer || !Array.isArray(layer.objects)) return;
+
+        layer.objects.forEach(obj => {
+            const props = obj.properties || [];
+            const taskId = props.find(p => p.name === 'taskId')?.value || null;
+            if (!taskId) return;
+
+            const label = props.find(p => p.name === 'label')?.value || obj.name || taskId;
+            const mode = props.find(p => p.name === 'mode')?.value || 'panel'; // 'panel' | 'scene'
+            const sceneKey = props.find(p => p.name === 'sceneKey')?.value || null;
+
+            const rect = new Phaser.Geom.Rectangle(
+                obj.x,
+                obj.y,
+                typeof obj.width === 'number' && obj.width > 0 ? obj.width : 32,
+                typeof obj.height === 'number' && obj.height > 0 ? obj.height : 32
+            );
+
+            const zone = {
+                taskId,
+                label,
+                mode,
+                sceneKey,
+                rect,
+                center: { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
+            };
+
+            this.storyZones.push(zone);
+            this.storyZonesByTaskId[taskId] = zone;
+        });
+
+        // On-screen prompt for the active zone
+        this.zonePromptText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height - 34, '', {
+            fontFamily: '"Press Start 2P"',
+            fontSize: '12px',
+            color: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 4
+        }).setOrigin(0.5, 0.5);
+        this.zonePromptText.setScrollFactor(0).setDepth(110).setVisible(false);
+    }
+
+    getActiveZoneForPlayer() {
+        if (!this.player || !this.storyZonesByTaskId) return null;
+        const activeTaskId = this.getActiveTaskId();
+        if (!activeTaskId) return null;
+        const zone = this.storyZonesByTaskId[activeTaskId];
+        if (!zone) return null;
+
+        const inside = Phaser.Geom.Rectangle.Contains(zone.rect, this.player.x, this.player.y);
+        if (!inside) return null;
+        return zone;
+    }
+
+    updateZonePrompt() {
+        if (!this.zonePromptText || !this.player) return;
+        if (this.movementEnabled === false) {
+            this.zonePromptText.setVisible(false);
+            return;
+        }
+
+        const zone = this.getActiveZoneForPlayer();
+        if (!zone) {
+            this.zonePromptText.setVisible(false);
+            return;
+        }
+
+        this.zonePromptText.setText(`Press E: ${zone.label}`);
+        this.zonePromptText.setVisible(true);
+    }
+
+    triggerStoryZone(zone) {
+        const taskId = zone.taskId;
+        if (!taskId || !TASKS[taskId]) return;
+        if (!gameState.isTaskUnlocked(taskId) || gameState.isTaskComplete(taskId)) return;
+
+        // Scene-based tasks
+        if (zone.mode === 'scene') {
+            const key = zone.sceneKey;
+            if (!key) return;
+            this.movementEnabled = false;
+            this.input.keyboard.resetKeys();
+            this.scene.stop('UIScene');
+            this.scene.start(key);
+            return;
+        }
+
+        // Popup-based tasks (TaskPanel)
+        EventBus.emit('npc:interact', {
+            npcId: 'zone',
+            taskId,
+            name: TASKS[taskId].npcName,
+            greeting: TASKS[taskId].greeting,
+            npc: null
+        });
+
+        this.movementEnabled = false;
+        this.input.keyboard.resetKeys();
     }
 
     updateMissionGuider() {
         if (!this.guiderArrow || !this.player) return;
 
         let activeTarget = null;
-        
-        // Find the current active step in TASK_ORDER
-        for (const taskId of TASK_ORDER) {
-            if (!gameState.isTaskComplete(taskId)) {
-                if (gameState.isTaskUnlocked(taskId)) {
-                    // This is the active task
-                    const npc = this.npcs.getChildren().find(n => n.taskId === taskId);
-                    if (npc) activeTarget = { x: npc.x, y: npc.y };
-                    break;
-                }
+
+        const activeTaskId = this.getActiveTaskId();
+        if (activeTaskId) {
+            const zone = this.storyZonesByTaskId ? this.storyZonesByTaskId[activeTaskId] : null;
+            if (zone && zone.center) {
+                activeTarget = { x: zone.center.x, y: zone.center.y };
+            } else {
+                const npc = this.npcs.getChildren().find(n => n.taskId === activeTaskId);
+                if (npc) activeTarget = { x: npc.x, y: npc.y };
             }
         }
 
@@ -241,6 +383,35 @@ class GameScene extends Phaser.Scene {
         } else {
             this.guiderArrow.setVisible(false); // No active task (game complete)
         }
+    }
+
+    registerRoamer(sprite, options = {}) {
+        sprite.roamMinSpeed = options.minSpeed || 20;
+        sprite.roamMaxSpeed = options.maxSpeed || 45;
+        sprite.nextRoamChange = 0;
+        this.roamers.push(sprite);
+        this.setRoamerVelocity(sprite);
+    }
+
+    setRoamerVelocity(sprite) {
+        if (!sprite.body) return;
+        const speed = Phaser.Math.Between(sprite.roamMinSpeed, sprite.roamMaxSpeed);
+        const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        sprite.body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+        sprite.nextRoamChange = this.time.now + Phaser.Math.Between(900, 2200);
+        sprite.flipX = sprite.body.velocity.x < 0;
+    }
+
+    updateRoamers(time) {
+        if (!this.roamers || this.roamers.length === 0) return;
+        this.roamers.forEach(sprite => {
+            if (!sprite.active || !sprite.body) return;
+            const blocked = sprite.body.blocked.left || sprite.body.blocked.right || sprite.body.blocked.up || sprite.body.blocked.down;
+            if (time >= sprite.nextRoamChange || blocked) {
+                this.setRoamerVelocity(sprite);
+            }
+            sprite.setDepth(sprite.y);
+        });
     }
 
     onTaskComplete({ taskId }) {
@@ -286,12 +457,44 @@ class GameScene extends Phaser.Scene {
             const img = new Image();
             img.src = gameState.userProfile.drawingData;
             img.onload = () => {
-                this.textures.addImage('user_drawing', img);
+                const baseSize = (typeof SPRITE_W === 'number' && typeof SPRITE_H === 'number') ? SPRITE_W : 32;
+                const canvas = document.createElement('canvas');
+                canvas.width = baseSize;
+                canvas.height = baseSize;
+                const ctx = canvas.getContext('2d');
+                ctx.imageSmoothingEnabled = false;
+
+                const scale = Math.min(baseSize / img.width, baseSize / img.height);
+                const drawW = Math.max(1, Math.floor(img.width * scale));
+                const drawH = Math.max(1, Math.floor(img.height * scale));
+                const dx = Math.floor((baseSize - drawW) / 2);
+                const dy = Math.floor((baseSize - drawH) / 2);
+
+                ctx.clearRect(0, 0, baseSize, baseSize);
+                ctx.drawImage(img, dx, dy, drawW, drawH);
+
+                this.textures.addCanvas('user_drawing', canvas);
+                this.ensureUserDrawingAnims();
                 this.createUserNPC(spriteKey);
             };
         } else {
             this.createUserNPC(spriteKey);
         }
+    }
+
+    ensureUserDrawingAnims() {
+        const key = 'user_drawing';
+        const dirs = ['down', 'left', 'right', 'up'];
+        dirs.forEach(dir => {
+            const idleKey = `${key}_idle_${dir}`;
+            const walkKey = `${key}_${dir}`;
+            if (!this.anims.exists(idleKey)) {
+                this.anims.create({ key: idleKey, frames: [{ key }], frameRate: 1, repeat: -1 });
+            }
+            if (!this.anims.exists(walkKey)) {
+                this.anims.create({ key: walkKey, frames: [{ key }], frameRate: 1, repeat: -1 });
+            }
+        });
     }
 
     createUserNPC(spriteKey) {
@@ -312,44 +515,31 @@ class GameScene extends Phaser.Scene {
 
         // Place new explicit assets to enhance the map
         const extraSprites = [
-            { key: 'bull', x: 5 * 32, y: 12 * 32, scale: 0.8, anim: 'bull_anim', bounceX: -60, speed: 6000 },
-            { key: 'hotdogs', x: 23 * 32, y: 16 * 32, scale: 1.2, anim: 'hotdogs_anim', bounceX: 50, speed: 4000 },
-            { key: 'hugedogs', x: 23 * 32, y: 18 * 32, scale: 1.5, anim: 'hugedogs_anim', bounceX: -40, speed: 5000 }
+            { key: 'bull', x: 5 * 32, y: 12 * 32, scale: 0.8, anim: 'bull_anim', minSpeed: 18, maxSpeed: 38 },
         ];
 
         extraSprites.forEach(obj => {
-            const sprite = this.add.sprite(obj.x, obj.y, obj.key).setOrigin(0.5, 1);
+            const sprite = this.physics.add.sprite(obj.x, obj.y, obj.key).setOrigin(0.5, 1);
             sprite.setScale(obj.scale);
             sprite.setDepth(obj.y);
-            this.physics.add.existing(sprite, false); // Dynamic body
             sprite.body.setImmovable(true);
-            
-            // Adjust bounds relative to un-scaled width
-            const offX = (sprite.width - (sprite.width * 0.6)) / 2;
-            const offY = sprite.height - (sprite.height * 0.4);
-            
-            sprite.body.setSize(sprite.width * 0.6, sprite.height * 0.4);
+            sprite.body.setCollideWorldBounds(true);
+
+            // Adjust bounds relative to scaled size
+            const bodyWidth = sprite.displayWidth * 0.6;
+            const bodyHeight = sprite.displayHeight * 0.4;
+            const offX = (sprite.displayWidth - bodyWidth) / 2;
+            const offY = sprite.displayHeight - bodyHeight;
+
+            sprite.body.setSize(bodyWidth, bodyHeight);
             sprite.body.setOffset(offX, offY);
-            
+
             this.physics.add.collider(this.player, sprite);
+            this.physics.add.collider(sprite, this.wallsLayer);
+            this.physics.add.collider(sprite, this.objectsLayer);
             sprite.play(obj.anim);
 
-            if (obj.bounceX) {
-                this.tweens.add({
-                    targets: sprite,
-                    x: obj.x + obj.bounceX,
-                    duration: obj.speed,
-                    yoyo: true,
-                    repeat: -1,
-                    onUpdate: () => {
-                        // Keep dynamic body in sync with tweened X
-                        if (sprite.body) sprite.body.updateFromGameObject();
-                    },
-                    onYoyo: () => { sprite.flipX = obj.bounceX > 0; },
-                    onRepeat: () => { sprite.flipX = obj.bounceX < 0; }
-                });
-                sprite.flipX = obj.bounceX < 0;
-            }
+            this.registerRoamer(sprite, { minSpeed: obj.minSpeed, maxSpeed: obj.maxSpeed });
         });
 
         // Add the pixel scenery image statically, far from spawn
@@ -421,25 +611,30 @@ class GameScene extends Phaser.Scene {
             const petId = 'pet_cat';
              // Ensure we don't spawn duplicates on scene reload
             if (!this.children.list.some(child => child.name === petId)) {
-                const pet = this.add.sprite(13 * 32, 11 * 32, 'pet_cat_spritesheet');
+                const pet = this.add.sprite(13 * 32, 11 * 32, 'pet_cat_idle_sheet');
                 pet.setName(petId);
-                pet.play('pet_idle'); // Assuming an idle animation exists
+                pet.setOrigin(0.5, 1);
+                pet.setDepth(pet.y);
+                pet.play('pet_cat_idle');
             }
         }
     }
 
     markTaskHouse({ taskId }) {
         const task = TASKS[taskId];
-        if (!task || !task.housePos) return;
-        // Swap roof/facade front to show checkmark flag using the objects layer
-        this.objectsLayer.putTileAt(TID.CHECKMARK, task.housePos.x + 1, task.housePos.y + 1);
 
-        if (gameState.allTasksComplete) {
-            this.triggerCelebration();
+        if (task && task.housePos) {
+            // Swap roof/facade front to show checkmark flag using the objects layer
+            this.objectsLayer.putTileAt(TID.CHECKMARK, task.housePos.x + 1, task.housePos.y + 1);
         }
+
+        if (gameState.allTasksComplete) this.triggerCelebration();
     }
 
     triggerCelebration() {
+        if (this._celebrationRunning) return;
+        this._celebrationRunning = true;
+
         // Confetti emitter
         const emitter = this.add.particles(400, 300, 'village-tiles', {
             frame: [0, 8, 10, 15], // Random tile slices as confetti
