@@ -82,6 +82,8 @@ class GameScene extends Phaser.Scene {
         const spawnPoint = map.findObject('Spawn', obj => obj.name === 'spawn');
         this.player = new Player(this, spawnPoint ? spawnPoint.x + 16 : 400, spawnPoint ? spawnPoint.y + 16 : 600);
         this.physics.add.collider(this.player, this.wallsLayer);
+        this.physics.add.collider(this.player, this.objectsLayer);
+        this.physics.add.collider(this.player, this.staticObjects);
 
         this.createShopZone();
 
