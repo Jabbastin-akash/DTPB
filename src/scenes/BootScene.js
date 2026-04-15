@@ -64,6 +64,20 @@ class BootScene extends Phaser.Scene {
         this.load.spritesheet('pet_dog_idle_sheet', 'assets/Animals/Dog/Idle.png', { frameWidth: 48, frameHeight: 48 });
         this.load.spritesheet('pet_dog_walk_sheet', 'assets/Animals/Dog/Walk.png', { frameWidth: 48, frameHeight: 48 });
 
+        // Extra animals referenced by generated map imageObjects
+        this.load.spritesheet('animal_bird_idle_sheet', 'assets/Animals/Bird/Idle.png', { frameWidth: 32, frameHeight: 32 });
+        this.load.spritesheet('animal_bird_walk_sheet', 'assets/Animals/Bird/Walk.png', { frameWidth: 32, frameHeight: 32 });
+        this.load.spritesheet('animal_bird2_idle_sheet', 'assets/Animals/Bird 2/Idle.png', { frameWidth: 32, frameHeight: 32 });
+        this.load.spritesheet('animal_bird2_walk_sheet', 'assets/Animals/Bird 2/Walk.png', { frameWidth: 32, frameHeight: 32 });
+        this.load.spritesheet('animal_rat_idle_sheet', 'assets/Animals/Rat/Idle.png', { frameWidth: 32, frameHeight: 32 });
+        this.load.spritesheet('animal_rat_walk_sheet', 'assets/Animals/Rat/Walk.png', { frameWidth: 32, frameHeight: 32 });
+        this.load.spritesheet('animal_rat2_idle_sheet', 'assets/Animals/Rat 2/Idle.png', { frameWidth: 32, frameHeight: 32 });
+        this.load.spritesheet('animal_rat2_walk_sheet', 'assets/Animals/Rat 2/Walk.png', { frameWidth: 32, frameHeight: 32 });
+        this.load.spritesheet('animal_cat2_idle_sheet', 'assets/Animals/Cat 2/Idle.png', { frameWidth: 48, frameHeight: 48 });
+        this.load.spritesheet('animal_cat2_walk_sheet', 'assets/Animals/Cat 2/Walk.png', { frameWidth: 48, frameHeight: 48 });
+        this.load.spritesheet('animal_dog2_idle_sheet', 'assets/Animals/Dog 2/Idle.png', { frameWidth: 48, frameHeight: 48 });
+        this.load.spritesheet('animal_dog2_walk_sheet', 'assets/Animals/Dog 2/Walk.png', { frameWidth: 48, frameHeight: 48 });
+
         // Load Craftpix Assets (used for shop + decor)
         // These are located under /assets/Tiles main in the current project layout.
         this.load.image('shop_tent', 'assets/Tiles main/2 Objects/6 Tent/2.png');
@@ -458,19 +472,36 @@ class BootScene extends Phaser.Scene {
             }
         };
 
+        const ensureAnim = (key, sheetKey, start, end, frameRate) => {
+            if (this.anims.exists(key)) return;
+            this.anims.create({
+                key,
+                frames: this.anims.generateFrameNumbers(sheetKey, { start, end }),
+                frameRate,
+                repeat: -1
+            });
+        };
+
         const createPetAnimations = () => {
-            if (!this.anims.exists('pet_cat_idle')) {
-                this.anims.create({ key: 'pet_cat_idle', frames: this.anims.generateFrameNumbers('pet_cat_idle_sheet', { start: 0, end: 3 }), frameRate: 5, repeat: -1 });
-            }
-            if (!this.anims.exists('pet_cat_walk')) {
-                this.anims.create({ key: 'pet_cat_walk', frames: this.anims.generateFrameNumbers('pet_cat_walk_sheet', { start: 0, end: 5 }), frameRate: 10, repeat: -1 });
-            }
-            if (!this.anims.exists('pet_dog_idle')) {
-                this.anims.create({ key: 'pet_dog_idle', frames: this.anims.generateFrameNumbers('pet_dog_idle_sheet', { start: 0, end: 3 }), frameRate: 5, repeat: -1 });
-            }
-            if (!this.anims.exists('pet_dog_walk')) {
-                this.anims.create({ key: 'pet_dog_walk', frames: this.anims.generateFrameNumbers('pet_dog_walk_sheet', { start: 0, end: 5 }), frameRate: 10, repeat: -1 });
-            }
+            ensureAnim('pet_cat_idle', 'pet_cat_idle_sheet', 0, 3, 5);
+            ensureAnim('pet_cat_walk', 'pet_cat_walk_sheet', 0, 5, 10);
+            ensureAnim('pet_dog_idle', 'pet_dog_idle_sheet', 0, 3, 5);
+            ensureAnim('pet_dog_walk', 'pet_dog_walk_sheet', 0, 5, 10);
+
+            ensureAnim('animal_bird_idle', 'animal_bird_idle_sheet', 0, 3, 6);
+            ensureAnim('animal_bird_walk', 'animal_bird_walk_sheet', 0, 5, 10);
+            ensureAnim('animal_bird2_idle', 'animal_bird2_idle_sheet', 0, 3, 6);
+            ensureAnim('animal_bird2_walk', 'animal_bird2_walk_sheet', 0, 5, 10);
+
+            ensureAnim('animal_rat_idle', 'animal_rat_idle_sheet', 0, 3, 6);
+            ensureAnim('animal_rat_walk', 'animal_rat_walk_sheet', 0, 3, 10);
+            ensureAnim('animal_rat2_idle', 'animal_rat2_idle_sheet', 0, 3, 6);
+            ensureAnim('animal_rat2_walk', 'animal_rat2_walk_sheet', 0, 3, 10);
+
+            ensureAnim('animal_cat2_idle', 'animal_cat2_idle_sheet', 0, 3, 6);
+            ensureAnim('animal_cat2_walk', 'animal_cat2_walk_sheet', 0, 5, 10);
+            ensureAnim('animal_dog2_idle', 'animal_dog2_idle_sheet', 0, 3, 6);
+            ensureAnim('animal_dog2_walk', 'animal_dog2_walk_sheet', 0, 5, 10);
         };
 
         const createExtraAnimations = () => {
