@@ -92,7 +92,7 @@ class TaskPanel {
         this.submitBtn.disabled = true;
 
         if (this.taskId === 'task1') {
-            this.submitBtn.innerText = "Tell the village!";
+            this.submitBtn.innerText = "Finish Conversation";
             this.submitBtn.style.backgroundColor = '#4A7C59';
             this.submitBtn.style.color = 'white';
             this.submitBtn.style.width = '100%';
@@ -344,100 +344,164 @@ class TaskPanel {
     }
 
     buildTask1Panel(form) {
-        // Speech bubble
-        const bubble = document.createElement('div');
-        bubble.style.display = 'flex';
-        bubble.style.alignItems = 'center';
-        bubble.style.marginBottom = '25px';
+        this.headerEl.innerText = '🏠 House Conversation';
+        this.msgEl.style.display = 'none';
 
-        const face = document.createElement('div');
-        face.style.width = '48px';
-        face.style.height = '48px';
-        face.style.backgroundColor = '#e67e22'; // Guide's color
-        face.style.borderRadius = '50%';
-        face.style.flexShrink = '0';
-        face.style.display = 'flex';
-        face.style.alignItems = 'center';
-        face.style.justifyContent = 'center';
-        face.style.fontSize = '24px';
-        face.innerText = '👋';
-        bubble.appendChild(face);
+        const convoWrap = document.createElement('div');
+        convoWrap.style.display = 'flex';
+        convoWrap.style.flexDirection = 'column';
+        convoWrap.style.gap = '12px';
 
-        const dialogue = document.createElement('div');
-        dialogue.style.position = 'relative';
-        dialogue.style.backgroundColor = 'rgba(255,255,255,0.1)';
-        dialogue.style.padding = '15px';
-        dialogue.style.borderRadius = '10px';
-        dialogue.style.marginLeft = '15px';
-        dialogue.innerHTML = "Hello! I'm your village guide. Every great solution starts with a problem. Tell me — <strong>what problem do you want to solve?</strong>";
-        
-        const tail = document.createElement('div');
-        tail.style.position = 'absolute';
-        tail.style.left = '-10px';
-        tail.style.top = '50%';
-        tail.style.transform = 'translateY(-50%)';
-        tail.style.width = '0';
-        tail.style.height = '0';
-        tail.style.borderTop = '10px solid transparent';
-        tail.style.borderBottom = '10px solid transparent';
-        tail.style.borderRight = '10px solid rgba(255,255,255,0.1)';
-        dialogue.appendChild(tail);
+        const friendBubble = (text) => {
+            const row = document.createElement('div');
+            row.style.alignSelf = 'flex-start';
+            row.style.maxWidth = '92%';
+            row.style.background = 'rgba(255,255,255,0.12)';
+            row.style.border = '1px solid rgba(255,255,255,0.2)';
+            row.style.borderRadius = '12px';
+            row.style.padding = '12px';
+            row.style.lineHeight = '1.5';
+            row.style.fontSize = '12px';
+            row.innerHTML = `<strong>Ruby (friend):</strong> ${text}`;
+            convoWrap.appendChild(row);
+            return row;
+        };
 
-        bubble.appendChild(dialogue);
-        form.appendChild(bubble);
+        const playerReply = (key, placeholder, minLength, onChange) => {
+            const row = document.createElement('div');
+            row.style.alignSelf = 'flex-end';
+            row.style.width = '92%';
+            row.style.background = 'rgba(0,0,0,0.2)';
+            row.style.border = '1px solid rgba(255,255,255,0.25)';
+            row.style.borderRadius = '12px';
+            row.style.padding = '10px';
 
-        // Input fields
-        const fields = [
-            { key: 'problem', label: 'The problem is...', placeholder: 'e.g. Students forget their water bottles at school', minLength: 10 },
-            { key: 'helpPeople', label: 'This matters because...', placeholder: 'e.g. They get dehydrated and can\'t focus in class', minLength: 10 }
-        ];
+            const label = document.createElement('div');
+            label.innerText = 'You:';
+            label.style.marginBottom = '6px';
+            label.style.fontSize = '12px';
+            label.style.color = '#9ad1ff';
+            row.appendChild(label);
 
-        fields.forEach(field => {
-            const wrap = document.createElement('div');
-            wrap.style.marginBottom = '20px';
+            const input = document.createElement('textarea');
+            input.rows = 2;
+            input.name = key;
+            input.placeholder = placeholder;
+            input.style.width = '100%';
+            input.style.boxSizing = 'border-box';
+            input.style.padding = '10px';
+            input.style.borderRadius = '8px';
+            input.style.border = '1px solid #60738a';
+            input.style.backgroundColor = 'rgba(255,255,255,0.95)';
+            input.style.color = '#1f2937';
+            input.style.fontFamily = 'Arial, sans-serif';
+            input.style.fontSize = '15px';
+            input.style.lineHeight = '1.35';
+            row.appendChild(input);
 
-            const lbl = document.createElement('label');
-            lbl.innerText = field.label;
-            lbl.style.display = 'flex';
-            lbl.style.justifyContent = 'space-between';
-            lbl.style.alignItems = 'center';
-            lbl.style.fontWeight = 'bold';
-            lbl.style.marginBottom = '8px';
-            wrap.appendChild(lbl);
+            const count = document.createElement('div');
+            count.innerText = `0/${minLength} characters`;
+            count.style.marginTop = '6px';
+            count.style.fontSize = '11px';
+            count.style.color = '#ffb3b3';
+            row.appendChild(count);
 
-            const inp = document.createElement('input');
-            inp.type = 'text';
-            inp.name = field.key;
-            inp.placeholder = field.placeholder;
-            inp.className = 'task-input';
-            inp.style.width = '100%';
-            inp.style.padding = '12px';
-            inp.style.borderRadius = '8px';
-            inp.style.border = '1px solid #555';
-            inp.style.backgroundColor = 'rgba(0,0,0,0.2)';
-            inp.style.color = '#fff';
-            inp.style.fontSize = '16px';
-            
-            const countBadge = document.createElement('span');
-            countBadge.innerText = '0 chars';
-            countBadge.style.fontSize = '12px';
-            countBadge.style.padding = '3px 6px';
-            countBadge.style.borderRadius = '5px';
-            countBadge.style.backgroundColor = '#777';
-            countBadge.style.color = 'white';
-
-            inp.oninput = () => {
-                const len = inp.value.length;
-                countBadge.innerText = `${len} chars`;
-                countBadge.style.backgroundColor = len >= field.minLength ? '#4A7C59' : '#d9534f';
+            input.oninput = () => {
+                const len = (input.value || '').trim().length;
+                count.innerText = `${len}/${minLength} characters`;
+                count.style.color = len >= minLength ? '#b8f5c0' : '#ffb3b3';
+                if (onChange) onChange(len);
                 this.validate();
             };
 
-            lbl.appendChild(countBadge);
-            this.inputs[field.key] = { element: inp, config: field };
-            wrap.appendChild(inp);
-            form.appendChild(wrap);
-        });
+            this.inputs[key] = { element: input, config: { minLength } };
+            convoWrap.appendChild(row);
+            return row;
+        };
+
+        friendBubble('I have been thinking... what is one real problem around us that you want to solve?');
+        playerReply('problem', 'Example: Students forget water bottles and stay thirsty in school.', 12, null);
+
+        const step2 = document.createElement('div');
+        step2.style.display = 'none';
+        step2.style.flexDirection = 'column';
+        step2.style.gap = '12px';
+
+        const step2Friend = document.createElement('div');
+        step2Friend.style.alignSelf = 'flex-start';
+        step2Friend.style.maxWidth = '92%';
+        step2Friend.style.background = 'rgba(255,255,255,0.12)';
+        step2Friend.style.border = '1px solid rgba(255,255,255,0.2)';
+        step2Friend.style.borderRadius = '12px';
+        step2Friend.style.padding = '12px';
+        step2Friend.style.lineHeight = '1.5';
+        step2Friend.style.fontSize = '12px';
+        step2Friend.innerHTML = '<strong>Ruby (friend):</strong> Good one. How does solving this help people at home or school?';
+        step2.appendChild(step2Friend);
+
+        const step2ReplyWrap = document.createElement('div');
+        step2ReplyWrap.style.alignSelf = 'flex-end';
+        step2ReplyWrap.style.width = '92%';
+        step2ReplyWrap.style.background = 'rgba(0,0,0,0.2)';
+        step2ReplyWrap.style.border = '1px solid rgba(255,255,255,0.25)';
+        step2ReplyWrap.style.borderRadius = '12px';
+        step2ReplyWrap.style.padding = '10px';
+
+        const step2Label = document.createElement('div');
+        step2Label.innerText = 'You:';
+        step2Label.style.marginBottom = '6px';
+        step2Label.style.fontSize = '12px';
+        step2Label.style.color = '#9ad1ff';
+        step2ReplyWrap.appendChild(step2Label);
+
+        const helpInput = document.createElement('textarea');
+        helpInput.rows = 2;
+        helpInput.name = 'helpPeople';
+        helpInput.placeholder = 'Example: They can focus better and feel healthier during class.';
+        helpInput.style.width = '100%';
+        helpInput.style.boxSizing = 'border-box';
+        helpInput.style.padding = '10px';
+        helpInput.style.borderRadius = '8px';
+        helpInput.style.border = '1px solid #60738a';
+        helpInput.style.backgroundColor = 'rgba(255,255,255,0.95)';
+        helpInput.style.color = '#1f2937';
+        helpInput.style.fontFamily = 'Arial, sans-serif';
+        helpInput.style.fontSize = '15px';
+        helpInput.style.lineHeight = '1.35';
+        step2ReplyWrap.appendChild(helpInput);
+
+        const helpCount = document.createElement('div');
+        helpCount.innerText = '0/12 characters';
+        helpCount.style.marginTop = '6px';
+        helpCount.style.fontSize = '11px';
+        helpCount.style.color = '#ffb3b3';
+        step2ReplyWrap.appendChild(helpCount);
+
+        helpInput.oninput = () => {
+            const len = (helpInput.value || '').trim().length;
+            helpCount.innerText = `${len}/12 characters`;
+            helpCount.style.color = len >= 12 ? '#b8f5c0' : '#ffb3b3';
+            this.validate();
+        };
+
+        this.inputs.helpPeople = { element: helpInput, config: { minLength: 12 } };
+        step2.appendChild(step2ReplyWrap);
+
+        convoWrap.appendChild(step2);
+
+        const problemInput = this.inputs.problem.element;
+        problemInput.oninput = () => {
+            const len = (problemInput.value || '').trim().length;
+            const problemCounter = problemInput.parentElement.querySelector('div:last-child');
+            if (problemCounter) {
+                problemCounter.innerText = `${len}/12 characters`;
+                problemCounter.style.color = len >= 12 ? '#b8f5c0' : '#ffb3b3';
+            }
+            step2.style.display = len >= 12 ? 'flex' : 'none';
+            this.validate();
+        };
+
+        form.appendChild(convoWrap);
     }
 
     buildStandardFields(form) {

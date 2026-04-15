@@ -18,7 +18,7 @@ class FootballScene extends Phaser.Scene {
         this.maxKicks = 4;
         this.currentTargetIndex = 0;
         this.ballInFlight = false;
-        this._kickResolveTimer = null;
+        this._kickTween = null;
         this.lastKickAt = -99999;
         this.kickCooldownMs = 350;
         this.validHitWindowMs = 1400;
@@ -76,7 +76,7 @@ class FootballScene extends Phaser.Scene {
 
         const goal = {
             x: Math.floor(w / 2 - 210),
-            y: 86,
+            y: 108,
             width: 420,
             height: 132
         };
@@ -96,7 +96,7 @@ class FootballScene extends Phaser.Scene {
         };
 
         if (goalTextureKey) {
-            const goalSprite = this.add.image(goal.x + goal.width / 2, goal.y + goal.height / 2 + 6, goalTextureKey).setDepth(3);
+            const goalSprite = this.add.image(goal.x + goal.width / 2, goal.y + goal.height / 2 + 8, goalTextureKey).setDepth(3);
             goalSprite.setDisplaySize(goal.width + 70, goal.height + 58);
             this.goalSprite = goalSprite;
 
@@ -107,11 +107,6 @@ class FootballScene extends Phaser.Scene {
                 topY: Math.floor(gb.top + gb.height * 0.3),
                 bottomY: Math.floor(gb.top + gb.height * 0.79)
             };
-
-            this.add.rectangle(goal.x + goal.width / 2, goal.y + goal.height / 2, goal.width, goal.height)
-                .setStrokeStyle(3, 0xffffff, 0.35)
-                .setFillStyle(0x000000, 0)
-                .setDepth(2);
         } else {
             this.add.rectangle(goal.x + goal.width / 2, goal.y + goal.height / 2, goal.width, goal.height)
                 .setStrokeStyle(5, 0xffffff, 0.95)
@@ -124,15 +119,15 @@ class FootballScene extends Phaser.Scene {
 
         const questions = this.getGoalQuestions();
         const targets = [
-            { key: 'topLeft', x: cornerPoints.leftX, y: cornerPoints.topY, label: 'Top Left', question: questions[0] },
-            { key: 'topRight', x: cornerPoints.rightX, y: cornerPoints.topY, label: 'Top Right', question: questions[1] },
-            { key: 'bottomLeft', x: cornerPoints.leftX, y: cornerPoints.bottomY, label: 'Bottom Left', question: questions[2] },
-            { key: 'bottomRight', x: cornerPoints.rightX, y: cornerPoints.bottomY, label: 'Bottom Right', question: questions[3] }
+            { key: 'topLeft', x: cornerPoints.leftX, y: cornerPoints.topY, label: 'Left Top Corner', question: questions[0] },
+            { key: 'topRight', x: cornerPoints.rightX, y: cornerPoints.topY, label: 'Right Top Corner', question: questions[1] },
+            { key: 'bottomLeft', x: cornerPoints.leftX, y: cornerPoints.bottomY, label: 'Left Bottom Corner', question: questions[2] },
+            { key: 'bottomRight', x: cornerPoints.rightX, y: cornerPoints.bottomY, label: 'Right Bottom Corner', question: questions[3] }
         ];
 
         this.goalObjects = targets.map((t, i) => {
             const marker = this.add.circle(t.x, t.y, 17, 0xffd166, 0.38).setStrokeStyle(3, 0xffffff, 0.95).setDepth(6);
-            const label = this.add.text(t.x, t.y - 26, String(i + 1), {
+            const markerText = this.add.text(t.x, t.y - 26, String(i + 1), {
                 fontFamily: '"Press Start 2P"',
                 fontSize: '12px',
                 color: '#ffffff',
@@ -143,9 +138,9 @@ class FootballScene extends Phaser.Scene {
             const zone = this.add.zone(t.x, t.y, 38, 38);
             this.physics.add.existing(zone, true);
 
-            this.physics.add.overlap(this.ball, zone, () => this.onCornerHit(t, marker, label));
+            this.physics.add.overlap(this.ball, zone, () => this.onCornerHit(t, marker, markerText));
 
-            return { ...t, index: i, marker, label, zone };
+            return { ...t, index: i, marker, markerText, zone };
         });
 
         this.hudText = this.add.text(w / 2, 68, '', {
@@ -166,24 +161,29 @@ class FootballScene extends Phaser.Scene {
             if (this._onKickKeyDown && this.input?.keyboard) {
                 this.input.keyboard.off('keydown', this._onKickKeyDown);
             }
-            if (this._kickResolveTimer) {
-                this._kickResolveTimer.remove(false);
-                this._kickResolveTimer = null;
+            if (this._kickTween) {
+                this._kickTween.remove();
+                this._kickTween = null;
             }
             if (this._activeDom) {
                 this._activeDom.destroy();
                 this._activeDom = null;
             }
+            if (this.input?.keyboard) {
+                this.input.keyboard.enabled = true;
+            }
         });
     }
 
     drawField(w, h) {
-        this.add.rectangle(w / 2, h / 2, w, h, 0x1e6a2f).setDepth(0);
-        this.add.rectangle(w / 2, h / 2, w - 96, h - 120, 0x2d8540).setDepth(0);
+        this.add.rectangle(w / 2, h / 2, w, h, 0x0a1320).setDepth(0);
 
-        const midY = Math.floor(h / 2);
-        this.add.rectangle(w / 2, midY, w - 112, 4, 0xffffff, 0.75).setDepth(1);
-        this.add.circle(w / 2, midY, 70).setStrokeStyle(4, 0xffffff, 0.75).setFillStyle(0xffffff, 0).setDepth(1);
+        if (this.textures.exists('football_ground_img')) {
+            const field = this.add.image(w / 2, h / 2, 'football_ground_img').setDepth(0);
+            field.setDisplaySize(w - 96, h - 120);
+        } else {
+            this.add.rectangle(w / 2, h / 2, w - 96, h - 120, 0x2d8540).setDepth(0);
+        }
 
         this.add.text(w / 2, 34, 'PLAYGROUND FOOTBALL', {
             fontFamily: '"Press Start 2P"',
@@ -321,28 +321,42 @@ class FootballScene extends Phaser.Scene {
     kickToTarget(target) {
         if (!target || !this.ball) return;
 
-        const dx = target.x - this.ball.x;
-        const dy = target.y - this.ball.y;
+        const startX = this.player.x;
+        const startY = this.player.y + Math.max(8, Math.floor((this.player.displayHeight || 32) * 0.3));
+        this.ball.setPosition(startX, startY);
+
+        const dx = target.x - startX;
+        const dy = target.y - startY;
         const dist = Math.hypot(dx, dy) || 1;
         const dir = { x: dx / dist, y: dy / dist };
 
         this.lastKickDir = dir;
         this.ballInFlight = true;
+        this.movementEnabled = false;
 
-        const power = 520;
-        this.ball.setVelocity(dir.x * power, dir.y * power);
-        this.ball.setAngularVelocity((Math.random() * 2 - 1) * 260);
+        this.ball.setVelocity(0, 0);
+        this.ball.setAngularVelocity(0);
 
-        if (this._kickResolveTimer) {
-            this._kickResolveTimer.remove(false);
-            this._kickResolveTimer = null;
+        if (this._kickTween) {
+            this._kickTween.remove();
+            this._kickTween = null;
         }
 
-        const travelMs = Phaser.Math.Clamp(Math.floor(dist * 1.8), 240, 650);
-        this._kickResolveTimer = this.time.delayedCall(travelMs, () => {
-            if (!this.ballInFlight || this._activeDom) return;
-            this.ball.setPosition(target.x, target.y);
-            this.onCornerHit(target, target.marker, target.label, true);
+        const travelMs = Phaser.Math.Clamp(Math.floor(dist * 1.5), 280, 720);
+        this._kickTween = this.tweens.add({
+            targets: this.ball,
+            x: target.x,
+            y: target.y,
+            duration: travelMs,
+            ease: 'Linear',
+            onUpdate: () => {
+                this.ball.rotation += 0.2;
+            },
+            onComplete: () => {
+                this._kickTween = null;
+                if (!this.ballInFlight || this._activeDom) return;
+                this.onCornerHit(target, target.marker, target.markerText, true);
+            }
         });
     }
 
@@ -375,6 +389,11 @@ class FootballScene extends Phaser.Scene {
             if (sinceKick > this.validHitWindowMs || speed < 110) return;
         }
 
+        if (this._kickTween) {
+            this._kickTween.remove();
+            this._kickTween = null;
+        }
+
         this.ballInFlight = false;
         this.ball.setVelocity(0, 0);
         this.ball.setAngularVelocity(0);
@@ -383,7 +402,10 @@ class FootballScene extends Phaser.Scene {
 
     openQuestion(goal, marker, label) {
         this.movementEnabled = false;
-        if (this.input?.keyboard) this.input.keyboard.resetKeys();
+        if (this.input?.keyboard) {
+            this.input.keyboard.resetKeys();
+            this.input.keyboard.enabled = false;
+        }
 
         const wrap = document.createElement('div');
         wrap.style.cssText = [
@@ -411,7 +433,19 @@ class FootballScene extends Phaser.Scene {
         const textarea = document.createElement('textarea');
         textarea.rows = 3;
         textarea.placeholder = 'Type your answer...';
-        textarea.style.cssText = 'width:100%;box-sizing:border-box;padding:10px;border-radius:6px;border:2px solid #ccc;';
+        textarea.style.cssText = [
+            'width:100%',
+            'box-sizing:border-box',
+            'padding:10px',
+            'border-radius:6px',
+            'border:2px solid #ccc',
+            'font-family: Arial, sans-serif',
+            'font-size:16px',
+            'line-height:1.35'
+        ].join(';') + ';';
+        textarea.addEventListener('keydown', (e) => e.stopPropagation());
+        textarea.addEventListener('keyup', (e) => e.stopPropagation());
+        textarea.spellcheck = false;
         wrap.appendChild(textarea);
 
         const row = document.createElement('div');
@@ -448,7 +482,10 @@ class FootballScene extends Phaser.Scene {
             }
 
             this.movementEnabled = true;
-            if (this.input?.keyboard) this.input.keyboard.resetKeys();
+            if (this.input?.keyboard) {
+                this.input.keyboard.enabled = true;
+                this.input.keyboard.resetKeys();
+            }
 
             const w = this.cameras.main.width;
             const h = this.cameras.main.height;
@@ -463,6 +500,7 @@ class FootballScene extends Phaser.Scene {
             this.ball.setVelocity(0, 0);
             this.ball.setAngularVelocity(0);
             this.ballInFlight = false;
+            this.movementEnabled = true;
 
             if (this.completedGoals.size >= 4) {
                 this.finishTask();
@@ -474,6 +512,8 @@ class FootballScene extends Phaser.Scene {
 
         this._activeDom = this.add.dom(this.cameras.main.width / 2, this.cameras.main.height / 2, wrap);
         this._activeDom.setDepth(200);
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
     }
 
     updateHud() {

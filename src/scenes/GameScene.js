@@ -10,6 +10,8 @@ class GameScene extends Phaser.Scene {
         this.movementEnabled = true;
         this.roamers = [];
         this._celebrationRunning = false;
+        this._autoEnterZoneTaskId = null;
+        this._autoEnterZoneStartAt = 0;
         // --- Map & Layers ---
         this.map = this.make.tilemap({ key: 'map' });
         const map = this.map;
@@ -23,7 +25,6 @@ class GameScene extends Phaser.Scene {
 
         this.wallsLayer.setCollisionByExclusion([-1, 0]);
         this.objectsLayer.setCollisionByExclusion([-1, 0]);
-        // this.buildingsLayer.setCollisionByExclusion([-1, 0]);
 
         this.groundLayer.setDepth(0);
         this.wallsLayer.setDepth(1);
@@ -37,23 +38,26 @@ class GameScene extends Phaser.Scene {
         this.imageItems = [];
 
         imageObjectsData.forEach(obj => {
-            const img = this.add.sprite(obj.x, obj.y, obj.key).setOrigin(0, 0);
+            const isRoamer = obj.roam === true;
+            const img = (isRoamer ? this.physics.add.sprite(obj.x, obj.y, obj.key) : this.add.sprite(obj.x, obj.y, obj.key)).setOrigin(0, 0);
             if (obj.width) img.displayWidth = obj.width;
             if (obj.height) img.displayHeight = obj.height;
-            if (obj.anim) img.play(obj.anim);
+            if (!isRoamer && obj.anim) img.play(obj.anim);
             
             const h = obj.height || img.height || 32;
             // Sorting based on the very bottom of the image
-            img.setDepth(obj.y + h);
+            img.setDepth(typeof obj.depth === 'number' ? obj.depth : (obj.y + h));
             this.imageItems.push({ img, bottom: obj.y + h });
 
             // Default bounds if missing
             const b = obj.customBounds || { x: 0, y: 0, w: obj.width || img.width || 32, h: obj.height || img.height || 32 };
             
-            // Draw a physics body
-            const dummy = this.add.zone(obj.x + b.x + b.w/2, obj.y + b.y + b.h/2, b.w, b.h);
-            this.physics.add.existing(dummy, true); // static body
-            this.staticObjects.add(dummy);
+            if (!isRoamer) {
+                // Draw a physics body
+                const dummy = this.add.zone(obj.x + b.x + b.w/2, obj.y + b.y + b.h/2, b.w, b.h);
+                this.physics.add.existing(dummy, true); // static body
+                this.staticObjects.add(dummy);
+            }
 
             // Add floaty animation to certain decors
             if (obj.key === 'decor_cart') {
@@ -66,11 +70,33 @@ class GameScene extends Phaser.Scene {
                     ease: 'Sine.easeInOut'
                 });
             }
+
+            if (isRoamer && img.body) {
+                img.body.setAllowGravity(false);
+                img.body.setCollideWorldBounds(true);
+                const spriteW = img.displayWidth || img.width || 32;
+                const spriteH = img.displayHeight || img.height || 32;
+                const bodyW = Math.min(16, spriteW);
+                const bodyH = Math.min(12, spriteH);
+                img.body.setSize(bodyW, bodyH);
+                img.body.setOffset(Math.floor((spriteW - bodyW) / 2), Math.floor(spriteH - bodyH));
+                this.physics.add.collider(img, this.wallsLayer);
+                this.physics.add.collider(img, this.staticObjects);
+                this.registerRoamer(img, {
+                    minSpeed: obj.roamMinSpeed,
+                    maxSpeed: obj.roamMaxSpeed,
+                    roamBounds: obj.roamBounds,
+                    idleAnim: obj.anim,
+                    walkAnim: obj.walkAnim,
+                    depthPad: spriteH
+                });
+            }
         });
 
         // Set World Bounds
         this.physics.world.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
 
+        this.normalizeGroundTiles();
         this.applyPathEdges();
 
         // Collision
@@ -104,9 +130,12 @@ class GameScene extends Phaser.Scene {
             const props = obj.properties || [];
             const npcId = props.find(p => p.name === 'npcId')?.value || obj.name;
             const taskId = props.find(p => p.name === 'taskId')?.value || null;
-            
-            const spriteKey = npcId.startsWith('villager') ? npcId : 
-                               npcId.startsWith('task') ? taskId : npcId;
+
+            let roleKey = npcId;
+            if (npcId.startsWith('task') && taskId) {
+                roleKey = taskId;
+            }
+            const spriteKey = this.getNpcSpriteKey(roleKey);
 
             // Adjust Tiled coordinate (bottom-left origin) to center origin
             const x = obj.x + (obj.width / 2);
@@ -128,6 +157,8 @@ class GameScene extends Phaser.Scene {
                 npc.setRandomPatrol(Math.floor(x/32), Math.floor(y/32), 3);
             }
         });
+
+        this.spawnExtraNPCs();
 
         // Add interaction collision bounds
         this.physics.add.overlap(this.player, this.npcs, (player, npc) => {
@@ -229,7 +260,32 @@ class GameScene extends Phaser.Scene {
         if (this.player) this.player.update();
         this.updateMissionGuider();
         this.updateZonePrompt();
+        this.updateAutoEnterZone(time);
         this.updateRoamers(time);
+    }
+
+    updateAutoEnterZone(time) {
+        if (this.movementEnabled === false) {
+            this._autoEnterZoneTaskId = null;
+            return;
+        }
+
+        const zone = this.getActiveZoneForPlayer();
+        if (zone?.mode !== 'scene' || !zone?.autoEnter) {
+            this._autoEnterZoneTaskId = null;
+            return;
+        }
+
+        if (this._autoEnterZoneTaskId !== zone.taskId) {
+            this._autoEnterZoneTaskId = zone.taskId;
+            this._autoEnterZoneStartAt = time;
+            return;
+        }
+
+        if (time - this._autoEnterZoneStartAt < 260) return;
+
+        this._autoEnterZoneTaskId = null;
+        this.triggerStoryZone(zone);
     }
 
     getActiveTaskId() {
@@ -255,6 +311,8 @@ class GameScene extends Phaser.Scene {
             const label = props.find(p => p.name === 'label')?.value || obj.name || taskId;
             const mode = props.find(p => p.name === 'mode')?.value || 'panel'; // 'panel' | 'scene'
             const sceneKey = props.find(p => p.name === 'sceneKey')?.value || null;
+            const autoEnterRaw = props.find(p => p.name === 'autoEnter')?.value;
+            const autoEnter = autoEnterRaw === true || autoEnterRaw === 'true' || autoEnterRaw === 1 || autoEnterRaw === '1';
 
             const rect = new Phaser.Geom.Rectangle(
                 obj.x,
@@ -268,6 +326,7 @@ class GameScene extends Phaser.Scene {
                 label,
                 mode,
                 sceneKey,
+                autoEnter,
                 rect,
                 center: { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
             };
@@ -312,7 +371,11 @@ class GameScene extends Phaser.Scene {
             return;
         }
 
-        this.zonePromptText.setText(`Press E: ${zone.label}`);
+        if (zone.mode === 'scene' && zone.autoEnter) {
+            this.zonePromptText.setText(`Entering: ${zone.label}`);
+        } else {
+            this.zonePromptText.setText(`Press E: ${zone.label}`);
+        }
         this.zonePromptText.setVisible(true);
     }
 
@@ -348,48 +411,107 @@ class GameScene extends Phaser.Scene {
     updateMissionGuider() {
         if (!this.guiderArrow || !this.player) return;
 
-        let activeTarget = null;
-
         const activeTaskId = this.getActiveTaskId();
-        if (activeTaskId) {
-            const zone = this.storyZonesByTaskId ? this.storyZonesByTaskId[activeTaskId] : null;
-            if (zone && zone.center) {
-                activeTarget = { x: zone.center.x, y: zone.center.y };
-            } else {
-                const npc = this.npcs.getChildren().find(n => n.taskId === activeTaskId);
-                if (npc) activeTarget = { x: npc.x, y: npc.y };
+        if (!activeTaskId) {
+            this.guiderArrow.setVisible(false);
+            return;
+        }
+
+        const zone = this.storyZonesByTaskId?.[activeTaskId];
+        const activeTarget = zone?.center
+            ? { x: zone.center.x, y: zone.center.y }
+            : (() => {
+                const npc = this.npcs?.getChildren?.().find(n => n.taskId === activeTaskId);
+                return npc ? { x: npc.x, y: npc.y } : null;
+            })();
+
+        if (!activeTarget) {
+            this.guiderArrow.setVisible(false);
+            return;
+        }
+
+        this.guiderArrow.setVisible(true);
+        const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, activeTarget.x, activeTarget.y);
+        const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, activeTarget.x, activeTarget.y);
+        this.guiderArrow.setAlpha(dist > 80 ? 1 : 0.2);
+        this.guiderArrow.x = this.player.x + Math.cos(angle) * 40;
+        this.guiderArrow.y = this.player.y + Math.sin(angle) * 40;
+        this.guiderArrow.rotation = angle;
+    }
+
+    getNpcSpriteKey(roleKey) {
+        const roleMap = this.registry.get('npcRoleSpriteMap') || {};
+        const spriteKey = roleMap[roleKey];
+        if (spriteKey && this.textures.exists(spriteKey)) return spriteKey;
+        return roleKey;
+    }
+
+    spawnExtraNPCs() {
+        const spriteKeys = this.registry.get('npcSpriteKeys') || [];
+        if (!Array.isArray(spriteKeys) || spriteKeys.length === 0) return;
+
+        const roleMap = this.registry.get('npcRoleSpriteMap') || {};
+        const used = new Set(Object.values(roleMap || {}));
+        const extras = spriteKeys.filter((key) => !used.has(key));
+        if (extras.length === 0) return;
+
+        const spawnPoints = this.collectExtraNpcSpawnPoints(extras.length);
+        if (spawnPoints.length === 0) return;
+
+        let spawnIndex = 0;
+        extras.forEach((spriteKey) => {
+            if (spawnIndex >= spawnPoints.length) return;
+            const point = spawnPoints[spawnIndex++];
+            const npc = new NPC(this, point.x, point.y, spriteKey, `extra_${spawnIndex}`);
+            this.npcs.add(npc);
+            npc.initialize();
+        });
+    }
+
+    collectExtraNpcSpawnPoints(targetCount) {
+        const points = [];
+        if (!this.map) return points;
+
+        const tileW = this.map.tileWidth || 32;
+        const tileH = this.map.tileHeight || 32;
+        const step = 2;
+
+        for (let ty = 2; ty < this.map.height - 2; ty += step) {
+            for (let tx = 2; tx < this.map.width - 2; tx += step) {
+                if (this.wallsLayer.getTileAt(tx, ty)) continue;
+                if (this.objectsLayer.getTileAt(tx, ty)) continue;
+
+                const wx = tx * tileW + tileW / 2;
+                const wy = ty * tileH + tileH / 2;
+
+                if (!this.isSpawnFarFromNpcs(wx, wy, 40)) continue;
+                points.push({ x: wx, y: wy });
             }
         }
 
-        if (activeTarget) {
-            this.guiderArrow.setVisible(true);
-            const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, activeTarget.x, activeTarget.y);
-            
-            // Only show arrow if target is somewhat far away
-            if (dist > 80) {
-                this.guiderArrow.setAlpha(1);
-                // Position arrow orbiting the player
-                const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, activeTarget.x, activeTarget.y);
-                this.guiderArrow.x = this.player.x + Math.cos(angle) * 40;
-                this.guiderArrow.y = this.player.y + Math.sin(angle) * 40;
-                this.guiderArrow.rotation = angle;
-            } else {
-                this.guiderArrow.setAlpha(0.2); // Fade out when close
-                const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, activeTarget.x, activeTarget.y);
-                this.guiderArrow.x = this.player.x + Math.cos(angle) * 40;
-                this.guiderArrow.y = this.player.y + Math.sin(angle) * 40;
-                this.guiderArrow.rotation = angle;
-            }
-        } else {
-            this.guiderArrow.setVisible(false); // No active task (game complete)
+        Phaser.Utils.Array.Shuffle(points);
+        return points.slice(0, Math.max(0, targetCount));
+    }
+
+    isSpawnFarFromNpcs(x, y, minDist) {
+        const npcs = this.npcs ? this.npcs.getChildren() : [];
+        for (const npc of npcs) {
+            const dist = Phaser.Math.Distance.Between(x, y, npc.x, npc.y);
+            if (dist < minDist) return false;
         }
+        return true;
     }
 
     registerRoamer(sprite, options = {}) {
         sprite.roamMinSpeed = options.minSpeed || 20;
         sprite.roamMaxSpeed = options.maxSpeed || 45;
+        sprite.roamBounds = options.roamBounds || null;
+        sprite.idleAnim = options.idleAnim || null;
+        sprite.walkAnim = options.walkAnim || null;
+        sprite.depthPad = options.depthPad || (sprite.displayHeight || sprite.height || 0);
         sprite.nextRoamChange = 0;
         this.roamers.push(sprite);
+        if (sprite.idleAnim) sprite.play(sprite.idleAnim);
         this.setRoamerVelocity(sprite);
     }
 
@@ -406,11 +528,28 @@ class GameScene extends Phaser.Scene {
         if (!this.roamers || this.roamers.length === 0) return;
         this.roamers.forEach(sprite => {
             if (!sprite.active || !sprite.body) return;
+            const bounds = sprite.roamBounds;
+            if (bounds) {
+                const minX = bounds.x;
+                const maxX = bounds.x + bounds.w;
+                const minY = bounds.y;
+                const maxY = bounds.y + bounds.h;
+                if (sprite.x < minX || sprite.x > maxX || sprite.y < minY || sprite.y > maxY) {
+                    sprite.x = Phaser.Math.Clamp(sprite.x, minX, maxX);
+                    sprite.y = Phaser.Math.Clamp(sprite.y, minY, maxY);
+                    this.setRoamerVelocity(sprite);
+                }
+            }
             const blocked = sprite.body.blocked.left || sprite.body.blocked.right || sprite.body.blocked.up || sprite.body.blocked.down;
             if (time >= sprite.nextRoamChange || blocked) {
                 this.setRoamerVelocity(sprite);
             }
-            sprite.setDepth(sprite.y);
+            const speed = Math.abs(sprite.body.velocity.x) + Math.abs(sprite.body.velocity.y);
+            const desiredAnim = speed > 1 ? sprite.walkAnim : sprite.idleAnim;
+            if (desiredAnim && sprite.anims?.currentAnim?.key !== desiredAnim) {
+                sprite.play(desiredAnim);
+            }
+            sprite.setDepth(sprite.y + (sprite.depthPad || 0));
         });
     }
 
@@ -449,7 +588,7 @@ class GameScene extends Phaser.Scene {
     }
 
     spawnUserNPC() {
-        if (!gameState.userProfile || !gameState.userProfile.name) return;
+        if (!gameState.userProfile?.name) return;
 
         // Use the drawing as a texture if it exists
         const spriteKey = gameState.userProfile.drawingData ? 'user_drawing' : 'villager1';
@@ -507,48 +646,25 @@ class GameScene extends Phaser.Scene {
     }
 
     createShopZone() {
-        for (let y = 15; y <= 19; y++) {
-            for (let x = 19; x <= 23; x++) {
-                this.groundLayer.putTileAt(TID.COBBLESTONE, x, y);
+        // Intentionally empty: world clutter has been removed by request.
+    }
+
+    normalizeGroundTiles() {
+        const orangeLikeGround = new Set([TID.SOIL, TID.FLOWER_GROUND]);
+
+        for (let y = 0; y < this.map.height; y++) {
+            for (let x = 0; x < this.map.width; x++) {
+                const g = this.groundLayer.getTileAt(x, y);
+                if (g && orangeLikeGround.has(g.index)) {
+                    this.groundLayer.putTileAt(TID.GRASS, x, y);
+                }
+
+                const u = this.upgradeLayer.getTileAt(x, y);
+                if (u && orangeLikeGround.has(u.index)) {
+                    this.upgradeLayer.removeTileAt(x, y);
+                }
             }
         }
-
-        // Place new explicit assets to enhance the map
-        const extraSprites = [
-            { key: 'bull', x: 5 * 32, y: 12 * 32, scale: 0.8, anim: 'bull_anim', minSpeed: 18, maxSpeed: 38 },
-        ];
-
-        extraSprites.forEach(obj => {
-            const sprite = this.physics.add.sprite(obj.x, obj.y, obj.key).setOrigin(0.5, 1);
-            sprite.setScale(obj.scale);
-            sprite.setDepth(obj.y);
-            sprite.body.setImmovable(true);
-            sprite.body.setCollideWorldBounds(true);
-
-            // Adjust bounds relative to scaled size
-            const bodyWidth = sprite.displayWidth * 0.6;
-            const bodyHeight = sprite.displayHeight * 0.4;
-            const offX = (sprite.displayWidth - bodyWidth) / 2;
-            const offY = sprite.displayHeight - bodyHeight;
-
-            sprite.body.setSize(bodyWidth, bodyHeight);
-            sprite.body.setOffset(offX, offY);
-
-            this.physics.add.collider(this.player, sprite);
-            this.physics.add.collider(sprite, this.wallsLayer);
-            this.physics.add.collider(sprite, this.objectsLayer);
-            sprite.play(obj.anim);
-
-            this.registerRoamer(sprite, { minSpeed: obj.minSpeed, maxSpeed: obj.maxSpeed });
-        });
-
-        // Add the pixel scenery image statically, far from spawn
-        const pixelScenery = this.add.image(10 * 32, 2 * 32, 'pixel_scenery').setOrigin(0.5, 1).setScale(4);
-        pixelScenery.setDepth(2 * 32);
-        this.physics.add.existing(pixelScenery, true);
-        pixelScenery.body.setSize(pixelScenery.width * 0.8, pixelScenery.height * 0.4);
-        pixelScenery.body.setOffset((pixelScenery.width * 0.2) / 2, pixelScenery.height * 0.6);
-        this.physics.add.collider(this.player, pixelScenery);
     }
 
     applyPathEdges() {
@@ -623,7 +739,7 @@ class GameScene extends Phaser.Scene {
     markTaskHouse({ taskId }) {
         const task = TASKS[taskId];
 
-        if (task && task.housePos) {
+        if (task?.housePos) {
             // Swap roof/facade front to show checkmark flag using the objects layer
             this.objectsLayer.putTileAt(TID.CHECKMARK, task.housePos.x + 1, task.housePos.y + 1);
         }

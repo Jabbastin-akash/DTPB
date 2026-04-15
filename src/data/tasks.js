@@ -4,7 +4,7 @@
 const TASKS = {
     task1: {
         id: 'task1',
-        title: 'Home: Define the Problem Statement',
+        title: 'Home: Talk With Friend (Identify Problem)',
         icon: '📋',
         housePos: { x: 5, y: 2 },
         npcPos: { x: 7, y: 8 },
@@ -14,13 +14,13 @@ const TASKS = {
         roofColor: 0xc0392b,
         points: 20,
         bonusPoints: 0,
-        greeting: "At Home: Every big solution starts with understanding the problem. What problem do you want to solve?",
-        completeMsg: "Great thinking! You've defined your first problem!",
+        greeting: "At Home: Talk with your friend Ruby and identify the core problem together.",
+        completeMsg: "Great conversation! You identified the first problem clearly!",
         dialogue: {
-            intro: "At Home: Every big solution starts with understanding the problem. Can you tell me what problem you want to solve?",
+            intro: "At Home: Talk with your friend Ruby and identify the core problem together.",
             complete: "Great thinking! You've defined your first problem! Now head to the Playground.",
             locked: "I'm still thinking about problems... come back later!",
-            in_progress: "How's that problem statement coming along?"
+            in_progress: "Keep talking it through with Ruby - what problem matters most right now?"
         },
         fields: [
             {
@@ -107,7 +107,7 @@ const TASKS = {
 
     task3b: {
         id: 'task3b',
-        title: 'Corridor: Sad Space / Happy Space',
+        title: 'Park: Sad Space / Happy Space',
         icon: '😊',
         housePos: { x: 30, y: 13 },
         npcPos: { x: 32, y: 19 },
@@ -117,10 +117,10 @@ const TASKS = {
         roofColor: 0xe67e22,
         points: 25,
         bonusPoints: 0,
-        greeting: "In the Corridor: show the sad moments and the happy moments in your user's journey.",
+        greeting: "In the Park: show the sad moments and the happy moments in your user's journey.",
         completeMsg: "Great job exploring feelings! Understanding emotions is key to design!",
         dialogue: {
-            intro: "In the Corridor: show the sad moments and the happy moments in your user's journey.",
+            intro: "In the Park: show the sad moments and the happy moments in your user's journey.",
             complete: "Great job! Now head to the Maze.",
             locked: "You need to create a user profile with Jade first.",
             in_progress: "How are those sad and happy spaces coming along?"
@@ -162,17 +162,17 @@ const TASKS = {
 
     task6: {
         id: 'task6',
-        title: 'Park: Ideate a Solution',
+        title: 'Corridor: Ideate a Solution',
         icon: '🌳',
         npcName: 'Park Ranger',
         npcColor: 0x16a085,
         roofColor: 0x16a085,
         points: 30,
         bonusPoints: 10,
-        greeting: "In the Park: sketch and describe your solution idea.",
+        greeting: "In the Corridor: sketch and describe your solution idea.",
         completeMsg: "Awesome ideas!",
         dialogue: {
-            intro: "In the Park: sketch and describe your solution idea.",
+            intro: "In the Corridor: sketch and describe your solution idea.",
             complete: "Nice! Now head to the School to validate.",
             locked: "Finish the Maze first.",
             in_progress: "Keep refining that idea!"

@@ -5,6 +5,10 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
     constructor(scene, x, y, spriteKey, id, properties = {}) {
         super(scene, x, y, spriteKey);
 
+        const baseHeight = this.height || 32;
+        const playerHeight = this.scene.player?.displayHeight;
+        const NPC_SCALE = (playerHeight && baseHeight) ? (playerHeight / baseHeight) : 1.85;
+
         this.scene = scene;
         this.npcId = id;
         this.spriteKey = spriteKey;
@@ -13,17 +17,21 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
         // Setup sprite
         this.scene.add.existing(this);
         this.scene.physics.add.existing(this);
+        this.setScale(NPC_SCALE);
         this.body.setImmovable(true);
         // generous hit box for interaction (auto-positioned near the feet)
-        const bodyW = 20;
-        const bodyH = 20;
-        const frameW = this.width || 32;
-        const frameH = this.height || 32;
-        this.body.setSize(bodyW, bodyH);
-        this.body.setOffset(Math.floor((frameW - bodyW) / 2), Math.floor(frameH - bodyH));
+        const bodyW = Math.round(20 * NPC_SCALE);
+        const bodyH = Math.round(20 * NPC_SCALE);
+        const displayW = this.displayWidth || this.width || 32;
+        const displayH = this.displayHeight || this.height || 32;
+        this.body.setSize(Math.min(bodyW, displayW), Math.min(bodyH, displayH));
+        this.body.setOffset(
+            Math.floor((displayW - this.body.width) / 2),
+            Math.floor(displayH - this.body.height)
+        );
 
         // Interaction marker (!)
-        this.markerOffsetY = Math.round((this.height || 32) / 2) + 16;
+        this.markerOffsetY = Math.round((this.displayHeight || 32) / 2) + Math.round(16 * NPC_SCALE);
         this.marker = this.scene.add.sprite(x, y - this.markerOffsetY, 'exclamation').setDepth(10);
         this.marker.setVisible(false);
 
@@ -114,7 +122,7 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
         }
         
         // Depth sort based on Y
-        this.setDepth(this.y + this.height);
+        this.setDepth(this.y + (this.displayHeight || this.height));
     }
 
     moveToTarget() {

@@ -27,7 +27,7 @@ window.onload = function() {
         parent: 'game-container',
         pixelArt: true, // Crucial for sharp pixel art
         backgroundColor: '#1a1a2e',
-        scene: [BootScene, CharSelectScene, GameScene, UIScene, FootballScene, MazeScene, CompleteScene],
+        scene: [BootScene, CharSelectScene, Task1ConversationScene, GameScene, UIScene, FootballScene, MazeScene, CompleteScene],
         physics: {
             default: 'arcade',
             arcade: {
