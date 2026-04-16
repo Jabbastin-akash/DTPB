@@ -583,7 +583,7 @@ function generateMapJSON() {
     imageObjects.push({ name: 'house2', key: 'house2', x: 29*32, y: 2*32, width: 113, height: 103, customBounds: { x: 14, y: 62, w: 85, h: 33 } });
     imageObjects.push({ name: 'house3', key: 'house3', x: 5*32 - 8, y: 13*32, width: 139, height: 80, customBounds: { x: 16, y: 48, w: 107, h: 24 } });
     imageObjects.push({ name: 'house4', key: 'house4', x: 30*32, y: 13*32, width: 90, height: 109, customBounds: { x: 10, y: 67, w: 70, h: 34 } });
-    imageObjects.push({ name: 'house5', key: 'house5', x: 17*32, y: 2*32, width: 127, height: 112, customBounds: { x: 14, y: 66, w: 99, h: 38 } });
+    imageObjects.push({ name: 'school', key: 'school_building', x: 17*32, y: 2*32, width: 127, height: 112, customBounds: { x: 14, y: 66, w: 99, h: 38 } });
     imageObjects.push({ name: 'house3b', key: 'house3', x: 10*32, y: 2*32, width: 139, height: 80, customBounds: { x: 16, y: 48, w: 107, h: 24 } });
     imageObjects.push({ name: 'house4b', key: 'house4', x: 22*32, y: 2*32, width: 90, height: 109, customBounds: { x: 10, y: 67, w: 70, h: 34 } });
     
@@ -678,7 +678,7 @@ function generateMapJSON() {
         customBounds: animalBounds
     }));
 
-    // Visible playground entry area for Task 2 (scene starts after reaching this place)
+    // Football ground (make it a solid obstacle so the player can't walk over the pitch)
     imageObjects.push({
         name: 'football_ground_entry',
         key: 'football_ground_img',
@@ -687,7 +687,7 @@ function generateMapJSON() {
         width: 8 * 32 - 8,
         height: 6 * 32 - 8,
         depth: 0,
-        customBounds: { x: 0, y: 0, w: 1, h: 1 }
+        customBounds: { x: 0, y: 0, w: 8 * 32 - 8, h: 6 * 32 - 8 }
     });
 
     // NPCs (non-task). Story progression is handled via Zones.
@@ -724,10 +724,11 @@ function generateMapJSON() {
             id: 201,
             name: 'playground',
             type: 'zone',
-            x: 2 * 32,
-            y: 22 * 32,
-            width: 8 * 32,
-            height: 6 * 32,
+            // Entry point for the football task (kept outside the pitch obstacle)
+            x: 4 * 32,
+            y: 28 * 32,
+            width: 4 * 32,
+            height: 2 * 32,
             properties: [
                 { name: 'taskId', type: 'string', value: 'task2' },
                 { name: 'label', type: 'string', value: 'Football Ground' },
@@ -740,14 +741,16 @@ function generateMapJSON() {
             id: 202,
             name: 'classroom',
             type: 'zone',
-            x: 4 * 32,
-            y: 14 * 32,
-            width: 8 * 32,
-            height: 6 * 32,
+            // Place the classroom task at the School building area (so the mission arrow guides to School).
+            x: 14 * 32,
+            y: 5 * 32,
+            width: 9 * 32,
+            height: 5 * 32,
             properties: [
                 { name: 'taskId', type: 'string', value: 'task3a' },
                 { name: 'label', type: 'string', value: 'Classroom' },
-                { name: 'mode', type: 'string', value: 'panel' }
+                { name: 'mode', type: 'string', value: 'scene' },
+                { name: 'sceneKey', type: 'string', value: 'ClassroomScene' }
             ]
         },
         {

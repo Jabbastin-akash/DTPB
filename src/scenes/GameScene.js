@@ -91,6 +91,16 @@ class GameScene extends Phaser.Scene {
         this.input.keyboard.enabled = true;
         this.input.keyboard.resetKeys();
 
+        // Debug shortcut: press C to open the Classroom scene
+        this._onDebugOpenClassroom = (e) => {
+            if (e?.stopPropagation) e.stopPropagation();
+            this.movementEnabled = false;
+            this.input.keyboard.resetKeys();
+            this.scene.stop('UIScene');
+            this.scene.start('ClassroomScene');
+        };
+        this.input.keyboard.on('keydown-C', this._onDebugOpenClassroom);
+
         // Camera setup
         this.cameras.main.startFollow(this.player, true, 0.05, 0.05);
         this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
@@ -187,6 +197,9 @@ class GameScene extends Phaser.Scene {
             EventBus.off('upgrade:purchased', this.applyUpgrade, this);
             EventBus.off('task:completed', this.onTaskComplete, this);
             EventBus.off('points:added', this.onPointsAdded, this);
+            if (this._onDebugOpenClassroom && this.input?.keyboard) {
+                this.input.keyboard.off('keydown-C', this._onDebugOpenClassroom);
+            }
         });
 
         // If tasks pre-completed (e.g., loaded save state), apply markers

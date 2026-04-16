@@ -10,7 +10,8 @@ class Task1ConversationScene extends Phaser.Scene {
         const w = this.cameras.main.width;
         const h = this.cameras.main.height;
 
-        this.movementEnabled = true;
+        // Lock movement in this scene (conversation-only)
+        this.movementEnabled = false;
         this.physics.world.setBounds(0, 0, w, h);
 
         this.answers = {
@@ -131,7 +132,7 @@ class Task1ConversationScene extends Phaser.Scene {
             this.movementEnabled = false;
         });
         answer.addEventListener('blur', () => {
-            this.movementEnabled = true;
+            this.movementEnabled = false;
         });
         answer.spellcheck = false;
         panel.appendChild(answer);

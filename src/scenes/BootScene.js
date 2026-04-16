@@ -96,6 +96,10 @@ class BootScene extends Phaser.Scene {
         // Task 1 Home Conversation scene background
         this.load.image('home_convo_bg', 'assets/Task_1/Home.png');
 
+        // School assets
+        this.load.image('school_src', 'assets/School/School.png');
+        this.load.image('class_src', 'assets/School/Class.png');
+
         // Additional world textures referenced by newer scenes/zones
         this.load.image('pond', 'assets/Pond.png');
         this.load.image('path_tile', 'assets/Path.png');
@@ -172,6 +176,63 @@ class BootScene extends Phaser.Scene {
         makeHouseCrop('houses_iso', 'house3', 12, 21, 139, 80); // Street-front row building
         makeHouseCrop('houses_iso', 'house4', 279, 106, 90, 109); // Tavern-style building
         makeHouseCrop('houses_iso', 'house5', 319, 215, 127, 112); // Wooden house
+
+        // Trim+scale the large School.png so it fits the existing town layout.
+        const makeTrimmedContainedTexture = (srcKey, destKey, outW, outH, alphaThreshold = 1) => {
+            const srcImg = this.textures.get(srcKey)?.getSourceImage?.();
+            if (!srcImg) return;
+
+            const srcCanvas = document.createElement('canvas');
+            srcCanvas.width = srcImg.width;
+            srcCanvas.height = srcImg.height;
+            const srcCtx = srcCanvas.getContext('2d', { willReadFrequently: true });
+            srcCtx.imageSmoothingEnabled = false;
+            srcCtx.clearRect(0, 0, srcCanvas.width, srcCanvas.height);
+            srcCtx.drawImage(srcImg, 0, 0);
+
+            const { data } = srcCtx.getImageData(0, 0, srcCanvas.width, srcCanvas.height);
+            const w = srcCanvas.width;
+            const h = srcCanvas.height;
+            let minX = w;
+            let minY = h;
+            let maxX = -1;
+            let maxY = -1;
+
+            for (let i = 3; i < data.length; i += 4) {
+                if (data[i] < alphaThreshold) continue;
+                const px = (i - 3) / 4;
+                const x = px % w;
+                const y = Math.floor(px / w);
+                if (x < minX) minX = x;
+                if (y < minY) minY = y;
+                if (x > maxX) maxX = x;
+                if (y > maxY) maxY = y;
+            }
+
+            if (maxX < 0) return;
+            const trimW = maxX - minX + 1;
+            const trimH = maxY - minY + 1;
+
+            const outCanvas = document.createElement('canvas');
+            outCanvas.width = outW;
+            outCanvas.height = outH;
+            const outCtx = outCanvas.getContext('2d');
+            outCtx.imageSmoothingEnabled = false;
+            outCtx.clearRect(0, 0, outW, outH);
+
+            const scale = Math.min(outW / trimW, outH / trimH);
+            const drawW = Math.max(1, Math.round(trimW * scale));
+            const drawH = Math.max(1, Math.round(trimH * scale));
+            const dx = Math.floor((outW - drawW) / 2);
+            const dy = Math.floor((outH - drawH) / 2);
+            outCtx.drawImage(srcCanvas, minX, minY, trimW, trimH, dx, dy, drawW, drawH);
+
+            if (this.textures.exists(destKey)) this.textures.remove(destKey);
+            this.textures.addCanvas(destKey, outCanvas);
+        };
+
+        // Match the previous 'house5' placement size (127x112) so the School acts as that location.
+        makeTrimmedContainedTexture('school_src', 'school_building', 127, 112);
 
         // --- Build humanoid sprite sheets from provided assets ---
         // We standardize humanoids to: 4 rows (down/left/right/up) × 7 columns

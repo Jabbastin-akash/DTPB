@@ -2,7 +2,7 @@
 // Reusable task panel class using DOM elements
 
 class TaskPanel {
-    constructor(scene, taskId, x = 400, y = 300, greeting, sourceNpc = null) {
+    constructor(scene, taskId, x = 400, y = 300, greeting = null, sourceNpc = null) {
         this.scene = scene;
         this.taskId = taskId;
         this.taskData = TASKS[taskId];
@@ -27,6 +27,13 @@ class TaskPanel {
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         `;
         this.rootDiv = div;
+
+        if (this.taskId === 'task7') {
+            // Classroom-themed background for the School task.
+            div.style.backgroundImage = 'linear-gradient(rgba(40, 40, 80, 0.92), rgba(40, 40, 80, 0.92)), url("assets/School/Class.png")';
+            div.style.backgroundSize = 'cover';
+            div.style.backgroundPosition = 'center';
+        }
         
         // Header
         const header = document.createElement('h2');
@@ -129,7 +136,9 @@ class TaskPanel {
     buildTask3aPanel(form) {
         this.rootDiv.style.backgroundColor = '#DFD8C8';
         this.rootDiv.style.color = '#333';
-        this.rootDiv.style.backgroundImage = 'url("data:image/svg+xml,%3Csvg width=\'6\' height=\'6\' viewBox=\'0 0 6 6\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'%239C92AC\' fill-opacity=\'0.1\'%3E%3Cpath d=\'M5 0h1L0 6V5zM6 5v1H5z\'/%3E%3C/g%3E%3C/svg%3E")';
+        this.rootDiv.style.backgroundImage = 'linear-gradient(rgba(223, 216, 200, 0.92), rgba(223, 216, 200, 0.92)), url("assets/School/Class.png")';
+        this.rootDiv.style.backgroundSize = 'cover';
+        this.rootDiv.style.backgroundPosition = 'center';
         this.rootDiv.style.boxShadow = '5px 5px 15px rgba(0,0,0,0.3)';
 
         this.headerEl.innerHTML = '📋 Interview Notes';
