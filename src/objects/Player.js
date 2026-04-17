@@ -2,7 +2,7 @@
 // Main character logic with WASD + arrow controls and collision
 
 class Player extends Phaser.Physics.Arcade.Sprite {
-    constructor(scene, x, y) {
+    constructor(scene, x, y, options = {}) {
         const textureKey = gameState.playerGender === 'female' ? 'player_female' : 'player_male';
         super(scene, x, y, textureKey);
 
@@ -13,12 +13,19 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         this.scene.add.existing(this);
         this.scene.physics.add.existing(this);
 
+        // Global visual scale for player (default: gameState.characterScale)
+        const characterScale = gameState?.characterScale ?? 1;
+        const scaleToUse = (typeof options.scale === 'number') ? options.scale : characterScale;
+        if (scaleToUse !== 1) {
+            this.setScale(scaleToUse);
+        }
+
         // Adjust hitbox to just cover the legs for top-down feel
         // Works for any frame size (32/48/64...) as long as origin is centered.
         const bodyW = 16;
         const bodyH = 12;
-        const frameW = this.width || 32;
-        const frameH = this.height || 32;
+        const frameW = this.displayWidth || this.width || 32;
+        const frameH = this.displayHeight || this.height || 32;
         this.body.setSize(bodyW, bodyH);
         this.body.setOffset(Math.floor((frameW - bodyW) / 2), Math.floor(frameH - bodyH));
         this.body.setCollideWorldBounds(true);
@@ -93,6 +100,6 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         }
 
         // Depth sort based on Y
-        this.setDepth(this.y + this.height);
+        this.setDepth(this.y + (this.displayHeight || this.height));
     }
 }

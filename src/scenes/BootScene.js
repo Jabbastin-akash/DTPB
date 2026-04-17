@@ -7,6 +7,8 @@ class BootScene extends Phaser.Scene {
     }
 
     preload() {
+        const ASSET_V = '20260417';
+
         // Loading bar
         const w = this.cameras.main.width;
         const h = this.cameras.main.height;
@@ -29,8 +31,12 @@ class BootScene extends Phaser.Scene {
         // Source sheets provided in /assets (filenames may differ from in-game keys)
         // Note: the tileset image is optional; if it fails to load, the game falls back to a procedural tileset.
         this.load.image('tileset_src', 'assets/Tiles main/1 Tiles/FieldsTileset.png');
-        this.load.image('houses_iso', 'assets/Hope.png');
         this.load.image('things_sheet', 'assets/things.png');
+
+        // Houses (replace old assets/Hope.png crops)
+        for (let i = 1; i <= 9; i++) {
+            this.load.image(`house${i}_src`, `assets/Houses/house${i}.png?v=${ASSET_V}`);
+        }
 
         // Player character sheet (used to build player sprite sheets)
         this.load.image('player_sheet', 'assets/character.png');
@@ -94,35 +100,21 @@ class BootScene extends Phaser.Scene {
         this.load.image('pixel_scenery', 'assets/Combinations/FullSpriteSheetsNoPadding/Scenery/Grass&StoneScenery.png');
 
         // Task 1 Home Conversation scene background
-        this.load.image('home_convo_bg', 'assets/Task_1/Home.png');
+        this.load.image('home_convo_bg', `assets/Task_1/Home.png?v=${ASSET_V}`);
 
         // School assets
-        this.load.image('school_src', 'assets/School/School.png');
-        this.load.image('class_src', 'assets/School/Class.png');
+        this.load.image('school_src', `assets/School/School.png?v=${ASSET_V}`);
+        this.load.image('class_src', `assets/School/Class.png?v=${ASSET_V}`);
 
         // Additional world textures referenced by newer scenes/zones
         this.load.image('pond', 'assets/Pond.png');
         this.load.image('path_tile', 'assets/Path.png');
-        this.load.image('football_ground_img', 'assets/Football/football-ground.png');
+        this.load.image('football_ground_img', `assets/Football/football-ground.png?v=${ASSET_V}`);
 
-        // Tree packs (replace old tile-based trees)
-        for (let i = 1; i <= 6; i++) {
-            this.load.image(`tree_apple_${i}`, `assets/Trees/PixelAppleTrees/sprite${i}.png`);
+        // Trees (replace old PixelAppleTrees/PixelOrangeTrees/OtherTrees)
+        for (let i = 1; i <= 12; i++) {
+            this.load.image(`tree${i}_src`, `assets/Trees/Tree${i}.png?v=${ASSET_V}`);
         }
-        for (let i = 1; i <= 4; i++) {
-            this.load.image(`tree_orange_${i}`, `assets/Trees/PixelOrangeTrees/sprite${i}.png`);
-        }
-        const otherTrees = [
-            ['tree_other_1', 'assets/Trees/OtherTrees/free_bundle_3_trees/birch_0.png'],
-            ['tree_other_2', 'assets/Trees/OtherTrees/free_bundle_3_trees/birch_1.png'],
-            ['tree_other_3', 'assets/Trees/OtherTrees/free_bundle_3_trees/burned_30.png'],
-            ['tree_other_4', 'assets/Trees/OtherTrees/free_bundle_3_trees/burned_36.png'],
-            ['tree_other_5', 'assets/Trees/OtherTrees/free_bundle_3_trees/conifers_15.png'],
-            ['tree_other_6', 'assets/Trees/OtherTrees/free_bundle_3_trees/conifers_4.png'],
-            ['tree_other_7', 'assets/Trees/OtherTrees/free_bundle_3_trees/conifers_5.png'],
-            ['tree_other_8', 'assets/Trees/OtherTrees/free_bundle_3_trees/sequoia_cedar_1.png'],
-        ];
-        otherTrees.forEach(([key, path]) => this.load.image(key, path));
 
         // Grass textures
         this.load.image('grass_tex_8', 'assets/Grass/ground_grass_gen_08.png');
@@ -141,43 +133,7 @@ class BootScene extends Phaser.Scene {
         // Store image objects data globally or in registry so we can fetch them in GameScene
         this.registry.set('imageObjects', mapData.imageObjects);
 
-        // --- Create required house textures from the Isometric assets ---
-        const makeHouseCrop = (srcKey, destKey, sx, sy, sw, sh) => {
-            const img = this.textures.get(srcKey)?.getSourceImage?.();
-            if (!img) return;
-            const canvas = document.createElement('canvas');
-            canvas.width = sw;
-            canvas.height = sh;
-            const ctx = canvas.getContext('2d');
-            ctx.imageSmoothingEnabled = false;
-            ctx.clearRect(0, 0, sw, sh);
-            ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-
-            // Remove magenta guide-outline pixels from this spritesheet for cleaner rendering.
-            const imgData = ctx.getImageData(0, 0, sw, sh);
-            const d = imgData.data;
-            for (let i = 0; i < d.length; i += 4) {
-                const r = d[i];
-                const g = d[i + 1];
-                const b = d[i + 2];
-                if (r > 180 && b > 170 && g < 140) {
-                    d[i + 3] = 0;
-                }
-            }
-            ctx.putImageData(imgData, 0, 0);
-
-            if (this.textures.exists(destKey)) this.textures.remove(destKey);
-            this.textures.addCanvas(destKey, canvas);
-        };
-
-        // Using precise cutouts from assets/Hope.png spritesheet
-        makeHouseCrop('houses_iso', 'house1', 157, 4, 157, 104); // Town hall style
-        makeHouseCrop('houses_iso', 'house2', 326, 4, 113, 103); // Colorful row house
-        makeHouseCrop('houses_iso', 'house3', 12, 21, 139, 80); // Street-front row building
-        makeHouseCrop('houses_iso', 'house4', 279, 106, 90, 109); // Tavern-style building
-        makeHouseCrop('houses_iso', 'house5', 319, 215, 127, 112); // Wooden house
-
-        // Trim+scale the large School.png so it fits the existing town layout.
+        // Trim+contain a source image into a fixed output size (preserves aspect ratio).
         const makeTrimmedContainedTexture = (srcKey, destKey, outW, outH, alphaThreshold = 1) => {
             const srcImg = this.textures.get(srcKey)?.getSourceImage?.();
             if (!srcImg) return;
@@ -230,6 +186,39 @@ class BootScene extends Phaser.Scene {
             if (this.textures.exists(destKey)) this.textures.remove(destKey);
             this.textures.addCanvas(destKey, outCanvas);
         };
+
+        // Build the in-game house textures from the new PNGs while keeping the same
+        // output dimensions as the previous map layout/collision geometry.
+        makeTrimmedContainedTexture('house1_src', 'house1', 157, 104);
+        makeTrimmedContainedTexture('house2_src', 'house2', 113, 103);
+        makeTrimmedContainedTexture('house3_src', 'house3', 139, 80);
+        makeTrimmedContainedTexture('house4_src', 'house4', 90, 109);
+        makeTrimmedContainedTexture('house5_src', 'house5', 127, 112);
+
+        // Extra houses for decorative duplicates / future use
+        makeTrimmedContainedTexture('house6_src', 'house6', 139, 80);
+        makeTrimmedContainedTexture('house7_src', 'house7', 90, 109);
+        makeTrimmedContainedTexture('house8_src', 'house8', 113, 103);
+        makeTrimmedContainedTexture('house9_src', 'house9', 157, 104);
+
+        // Build the in-game tree textures from Tree1..Tree12.
+        // Use a consistent output size so map placement + collision bounds remain stable.
+        const TREE_OUT_W = 128;
+        const TREE_OUT_H = 128;
+        makeTrimmedContainedTexture('tree1_src', 'tree_apple_1', TREE_OUT_W, TREE_OUT_H);
+        makeTrimmedContainedTexture('tree2_src', 'tree_apple_2', TREE_OUT_W, TREE_OUT_H);
+        makeTrimmedContainedTexture('tree3_src', 'tree_apple_3', TREE_OUT_W, TREE_OUT_H);
+        makeTrimmedContainedTexture('tree4_src', 'tree_apple_4', TREE_OUT_W, TREE_OUT_H);
+        makeTrimmedContainedTexture('tree5_src', 'tree_apple_5', TREE_OUT_W, TREE_OUT_H);
+        makeTrimmedContainedTexture('tree6_src', 'tree_apple_6', TREE_OUT_W, TREE_OUT_H);
+
+        makeTrimmedContainedTexture('tree7_src', 'tree_orange_1', TREE_OUT_W, TREE_OUT_H);
+        makeTrimmedContainedTexture('tree8_src', 'tree_orange_2', TREE_OUT_W, TREE_OUT_H);
+        makeTrimmedContainedTexture('tree9_src', 'tree_orange_3', TREE_OUT_W, TREE_OUT_H);
+        makeTrimmedContainedTexture('tree10_src', 'tree_orange_4', TREE_OUT_W, TREE_OUT_H);
+
+        makeTrimmedContainedTexture('tree11_src', 'tree_other_1', TREE_OUT_W, TREE_OUT_H);
+        makeTrimmedContainedTexture('tree12_src', 'tree_other_2', TREE_OUT_W, TREE_OUT_H);
 
         // Match the previous 'house5' placement size (127x112) so the School acts as that location.
         makeTrimmedContainedTexture('school_src', 'school_building', 127, 112);

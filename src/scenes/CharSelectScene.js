@@ -34,7 +34,8 @@ class CharSelectScene extends Phaser.Scene {
         // Sprite preview (scaled up)
         const preview = this.add.sprite(0, -30, spriteKey, 0);
         // Fit preview into the card regardless of sprite frame size
-        const maxSize = 120;
+        const characterScale = gameState?.characterScale ?? 1;
+        const maxSize = Math.max(120, Math.round(120 * characterScale));
         const denom = Math.max(preview.width || 1, preview.height || 1);
         preview.setScale(maxSize / denom);
 

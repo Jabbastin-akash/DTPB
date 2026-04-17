@@ -2,8 +2,8 @@
 // Generates tileset PNG and Tiled-format JSON map data programmatically
 
 const TILE_SIZE = 32;
-window.MAP_COLS = 40;
-window.MAP_ROWS = 30;
+window.MAP_COLS = 60;
+window.MAP_ROWS = 40;
 
 // Tile IDs (match Tiled convention: 0 = empty, 1+ = tileset index)
 window.TID = {
@@ -584,8 +584,8 @@ function generateMapJSON() {
     imageObjects.push({ name: 'house3', key: 'house3', x: 5*32 - 8, y: 13*32, width: 139, height: 80, customBounds: { x: 16, y: 48, w: 107, h: 24 } });
     imageObjects.push({ name: 'house4', key: 'house4', x: 30*32, y: 13*32, width: 90, height: 109, customBounds: { x: 10, y: 67, w: 70, h: 34 } });
     imageObjects.push({ name: 'school', key: 'school_building', x: 17*32, y: 2*32, width: 127, height: 112, customBounds: { x: 14, y: 66, w: 99, h: 38 } });
-    imageObjects.push({ name: 'house3b', key: 'house3', x: 10*32, y: 2*32, width: 139, height: 80, customBounds: { x: 16, y: 48, w: 107, h: 24 } });
-    imageObjects.push({ name: 'house4b', key: 'house4', x: 22*32, y: 2*32, width: 90, height: 109, customBounds: { x: 10, y: 67, w: 70, h: 34 } });
+    imageObjects.push({ name: 'house3b', key: 'house6', x: 10*32, y: 2*32, width: 139, height: 80, customBounds: { x: 16, y: 48, w: 107, h: 24 } });
+    imageObjects.push({ name: 'house4b', key: 'house7', x: 22*32, y: 2*32, width: 90, height: 109, customBounds: { x: 10, y: 67, w: 70, h: 34 } });
     
     // Fountain replaces old FOUNTAIN tiles
     imageObjects.push({ name: 'fountain', key: 'fountain', anim: 'fountain_anim', x: 18 * 32, y: 15 * 32 - 16, width: 64, height: 64, customBounds: { x: 0, y: 32, w: 64, h: 32 } });
@@ -606,8 +606,7 @@ function generateMapJSON() {
     const treeKeys = [
         'tree_apple_1', 'tree_apple_2', 'tree_apple_3', 'tree_apple_4', 'tree_apple_5', 'tree_apple_6',
         'tree_orange_1', 'tree_orange_2', 'tree_orange_3', 'tree_orange_4',
-        'tree_other_1', 'tree_other_2', 'tree_other_3', 'tree_other_4',
-        'tree_other_5', 'tree_other_6', 'tree_other_7', 'tree_other_8'
+        'tree_other_1', 'tree_other_2'
     ];
     const treeBounds = { x: 52, y: 88, w: 24, h: 28 };
     const pickTreeKey = (x, y) => treeKeys[Math.floor(hash01(x, y, 913) * treeKeys.length)];
@@ -625,7 +624,11 @@ function generateMapJSON() {
     leftYs.forEach((ty, i) => addTree(1 * 32, ty * 32, i));
 
     const rightYs = [4, 9, 14, 19];
+    // Keep the original right-side tree line (for the original 40x30 layout)...
     rightYs.forEach((ty, i) => addTree(36 * 32, ty * 32, i));
+    // ...and add another line on the new far-right edge for expanded maps.
+    const farRightTreeX = (MAP_COLS - 4) * 32;
+    rightYs.forEach((ty, i) => addTree(farRightTreeX, ty * 32, i + 100));
 
     // Animals along both sides with spacing
     const animalBounds = { x: 0, y: 0, w: 1, h: 1 };

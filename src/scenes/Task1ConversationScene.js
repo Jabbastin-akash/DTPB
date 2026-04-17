@@ -71,6 +71,11 @@ class Task1ConversationScene extends Phaser.Scene {
     }
 
     drawCharacters(w, h) {
+        const characterScale = gameState?.characterScale ?? 1;
+        const npcScale = gameState?.npcScale ?? characterScale;
+        const playerConvoSize = Math.max(72, Math.round(72 * characterScale));
+        const npcConvoSize = Math.max(72, Math.round(72 * npcScale));
+
         const roleMap = this.registry.get('npcRoleSpriteMap') || {};
         let friendKey = roleMap.guide || 'guide';
         if (!this.textures.exists(friendKey)) {
@@ -78,14 +83,14 @@ class Task1ConversationScene extends Phaser.Scene {
         }
 
         this.friend = this.add.sprite(w / 2 - 60, h / 2 + 80, friendKey).setDepth(5);
-        this.friend.setDisplaySize(72, 72);
+        this.friend.setDisplaySize(npcConvoSize, npcConvoSize);
         if (this.anims.exists(`${friendKey}_idle_right`)) {
             this.friend.play(`${friendKey}_idle_right`);
         }
 
         this.player = new Player(this, w / 2 + 60, h / 2 + 80);
         this.player.setDepth(5);
-        this.player.setDisplaySize(72, 72);
+        this.player.setDisplaySize(playerConvoSize, playerConvoSize);
         this.player.facing = 'left';
         if (this.anims.exists(`${this.player.spriteKey}_idle_left`)) {
             this.player.anims.play(`${this.player.spriteKey}_idle_left`, true);

@@ -33,22 +33,40 @@ class GameScene extends Phaser.Scene {
         const imageObjectsData = this.registry.get('imageObjects') || [];
         this.imageItems = [];
 
+        const houseScale = gameState?.houseScale ?? 1;
+
         imageObjectsData.forEach(obj => {
             const img = this.add.sprite(obj.x, obj.y, obj.key).setOrigin(0, 0);
-            if (obj.width) img.displayWidth = obj.width;
-            if (obj.height) img.displayHeight = obj.height;
+
+            const isHouse = typeof obj.key === 'string' && obj.key.startsWith('house');
+            const scaleFactor = (isHouse && houseScale !== 1) ? houseScale : 1;
+
+            const baseW = obj.width || img.width || 32;
+            const baseH = obj.height || img.height || 32;
+            const drawW = Math.max(1, Math.round(baseW * scaleFactor));
+            const drawH = Math.max(1, Math.round(baseH * scaleFactor));
+
+            img.displayWidth = drawW;
+            img.displayHeight = drawH;
             if (obj.anim) img.play(obj.anim);
             
-            const h = obj.height || img.height || 32;
             // Sorting based on the very bottom of the image
-            img.setDepth(obj.y + h);
-            this.imageItems.push({ img, bottom: obj.y + h });
+            img.setDepth(obj.y + drawH);
+            this.imageItems.push({ img, bottom: obj.y + drawH });
 
-            // Default bounds if missing
-            const b = obj.customBounds || { x: 0, y: 0, w: obj.width || img.width || 32, h: obj.height || img.height || 32 };
+            // Default bounds if missing (bounds are relative to the sprite's top-left)
+            const rawBounds = obj.customBounds || { x: 0, y: 0, w: baseW, h: baseH };
+            const b = (scaleFactor === 1)
+                ? rawBounds
+                : {
+                    x: Math.round(rawBounds.x * scaleFactor),
+                    y: Math.round(rawBounds.y * scaleFactor),
+                    w: Math.max(1, Math.round(rawBounds.w * scaleFactor)),
+                    h: Math.max(1, Math.round(rawBounds.h * scaleFactor))
+                };
             
             // Draw a physics body
-            const dummy = this.add.zone(obj.x + b.x + b.w/2, obj.y + b.y + b.h/2, b.w, b.h);
+            const dummy = this.add.zone(obj.x + b.x + b.w / 2, obj.y + b.y + b.h / 2, b.w, b.h);
             this.physics.add.existing(dummy, true); // static body
             this.staticObjects.add(dummy);
 
@@ -80,7 +98,15 @@ class GameScene extends Phaser.Scene {
         // --- Player Setup ---
         // Find spawn point from object layer
         const spawnPoint = map.findObject('Spawn', obj => obj.name === 'spawn');
-        this.player = new Player(this, spawnPoint ? spawnPoint.x + 16 : 400, spawnPoint ? spawnPoint.y + 16 : 600);
+        const characterScale = gameState?.characterScale ?? 1;
+        const worldMul = gameState?.playerWorldScaleMultiplier ?? 1;
+        const playerWorldScale = characterScale * worldMul;
+        this.player = new Player(
+            this,
+            spawnPoint ? spawnPoint.x + 16 : 400,
+            spawnPoint ? spawnPoint.y + 16 : 600,
+            { scale: playerWorldScale }
+        );
         this.physics.add.collider(this.player, this.wallsLayer);
         this.physics.add.collider(this.player, this.objectsLayer);
         this.physics.add.collider(this.player, this.staticObjects);
@@ -310,7 +336,12 @@ class GameScene extends Phaser.Scene {
         const zone = this.storyZonesByTaskId[activeTaskId];
         if (!zone) return null;
 
-        const inside = Phaser.Geom.Rectangle.Contains(zone.rect, this.player.x, this.player.y);
+        // Use physics-body bottom-center (feet) for zone checks.
+        // This is more reliable than sprite x/y when the character sprite is scaled
+        // or when body offsets are used for top-down hitboxes.
+        const probeX = this.player.body?.center?.x ?? this.player.x;
+        const probeY = this.player.body?.bottom ?? this.player.y;
+        const inside = Phaser.Geom.Rectangle.Contains(zone.rect, probeX, probeY);
         if (!inside) return null;
         return zone;
     }
@@ -515,12 +546,6 @@ class GameScene extends Phaser.Scene {
     }
 
     createShopZone() {
-        for (let y = 15; y <= 19; y++) {
-            for (let x = 19; x <= 23; x++) {
-                this.groundLayer.putTileAt(TID.COBBLESTONE, x, y);
-            }
-        }
-
         // Place new explicit assets to enhance the map
         const extraSprites = [
             { key: 'bull', x: 5 * 32, y: 12 * 32, scale: 0.8, anim: 'bull_anim', minSpeed: 18, maxSpeed: 38 },

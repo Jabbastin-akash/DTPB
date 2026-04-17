@@ -30,7 +30,7 @@ class TaskPanel {
 
         if (this.taskId === 'task7') {
             // Classroom-themed background for the School task.
-            div.style.backgroundImage = 'linear-gradient(rgba(40, 40, 80, 0.92), rgba(40, 40, 80, 0.92)), url("assets/School/Class.png")';
+            div.style.backgroundImage = 'linear-gradient(rgba(40, 40, 80, 0.92), rgba(40, 40, 80, 0.92)), url("assets/School/Class.png?v=20260417")';
             div.style.backgroundSize = 'cover';
             div.style.backgroundPosition = 'center';
         }
@@ -167,10 +167,12 @@ class TaskPanel {
         paper.style.padding = '10px 20px';
         paper.style.marginTop = '15px';
 
+        const teacherName = (this.taskData?.npcName) ? `Teacher ${this.taskData.npcName}` : 'Teacher';
+
         const questions = [
-            { label: 'Their name is...', key: 'name', type: 'text', minLength: 2 },
-            { label: 'Their problem is...', key: 'problem', type: 'text', minLength: 10 },
-            { label: 'They feel...', key: 'feelings', type: 'text', minLength: 10 },
+            { label: `${teacherName}: What is their name?`, key: 'name', type: 'text', minLength: 2 },
+            { label: `${teacherName}: What problem are they facing?`, key: 'problem', type: 'text', minLength: 10 },
+            { label: `${teacherName}: How do they feel about it?`, key: 'feelings', type: 'text', minLength: 10 },
         ];
 
         questions.forEach(q => {

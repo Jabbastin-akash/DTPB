@@ -13,17 +13,24 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
         // Setup sprite
         this.scene.add.existing(this);
         this.scene.physics.add.existing(this);
+
+        // Global visual scale for NPCs (kept in gameState)
+        const npcScale = gameState?.npcScale ?? gameState?.characterScale ?? 1;
+        if (npcScale !== 1) {
+            this.setScale(npcScale);
+        }
+
         this.body.setImmovable(true);
         // generous hit box for interaction (auto-positioned near the feet)
         const bodyW = 20;
         const bodyH = 20;
-        const frameW = this.width || 32;
-        const frameH = this.height || 32;
+        const frameW = this.displayWidth || this.width || 32;
+        const frameH = this.displayHeight || this.height || 32;
         this.body.setSize(bodyW, bodyH);
         this.body.setOffset(Math.floor((frameW - bodyW) / 2), Math.floor(frameH - bodyH));
 
         // Interaction marker (!)
-        this.markerOffsetY = Math.round((this.height || 32) / 2) + 16;
+        this.markerOffsetY = Math.round((this.displayHeight || this.height || 32) / 2) + 16;
         this.marker = this.scene.add.sprite(x, y - this.markerOffsetY, 'exclamation').setDepth(10);
         this.marker.setVisible(false);
 
@@ -114,7 +121,7 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
         }
         
         // Depth sort based on Y
-        this.setDepth(this.y + this.height);
+        this.setDepth(this.y + (this.displayHeight || this.height));
     }
 
     moveToTarget() {

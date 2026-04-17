@@ -149,7 +149,7 @@ class FootballScene extends Phaser.Scene {
             color: '#eef7ee'
         }).setOrigin(0.5).setDepth(10);
 
-        this.hintText = this.add.text(w / 2, h - 28, 'Move near ball and press SPACE/E/F. Kicks auto-aim to targets 1 -> 4.', {
+        this.hintText = this.add.text(w / 2, h - 28, 'Move near ball and press SPACE/E/F.', {
             fontFamily: 'sans-serif',
             fontSize: '14px',
             color: '#ffffff'
@@ -176,13 +176,14 @@ class FootballScene extends Phaser.Scene {
     }
 
     drawField(w, h) {
-        this.add.rectangle(w / 2, h / 2, w, h, 0x0a1320).setDepth(0);
-
         if (this.textures.exists('football_ground_img')) {
             const field = this.add.image(w / 2, h / 2, 'football_ground_img').setDepth(0);
-            field.setDisplaySize(w - 96, h - 120);
+            // Cover the whole canvas (no background border) while preserving aspect ratio
+            const sx = w / (field.width || 1);
+            const sy = h / (field.height || 1);
+            field.setScale(Math.max(sx, sy));
         } else {
-            this.add.rectangle(w / 2, h / 2, w - 96, h - 120, 0x2d8540).setDepth(0);
+            this.add.rectangle(w / 2, h / 2, w, h, 0x2d8540).setDepth(0);
         }
 
         this.add.text(w / 2, 34, 'PLAYGROUND FOOTBALL', {

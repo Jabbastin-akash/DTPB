@@ -7,6 +7,23 @@ const gameState = {
     upgradesPurchased: [],      // e.g. ['flowers', 'bench', ...]
     playerGender: 'male',       // Set by CharSelectScene
 
+    // Global visual scale for character sprites (Player + NPCs + conversation scenes)
+    // Increase this to make characters appear larger across the game.
+    characterScale: 1.5,
+
+    // Player scale ONLY for the main world/website (GameScene). This does not affect
+    // Football/Maze/Classroom scenes unless they explicitly opt-in.
+    // Example: 0.9 makes the player ~10% smaller than characterScale in the overworld.
+    playerWorldScaleMultiplier: 0.9,
+
+    // House sprite scale ONLY for the main world/website (GameScene).
+    // Example: 1.1 makes all houses ~10% larger in the overworld.
+    houseScale: 1.1,
+
+    // Separate NPC scale (villagers, task NPCs, teacher/friend sprites).
+    // If undefined/null, NPCs fall back to characterScale.
+    npcScale: 1.8,
+
     // Generic per-task storage (used by new story tasks + PDF export)
     taskAnswers: {},            // e.g. { task6: { ideaTitle: '...', ... } }
     taskDrawings: {},           // e.g. { task6: 'data:image/png;base64,...' }
