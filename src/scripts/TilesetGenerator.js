@@ -609,6 +609,7 @@ function generateMapJSON() {
     imageObjects.push({
         name: 'pond',
         key: 'pond',
+        anim: 'pond_anim',
         x: 80 * 32,
         y: 60 * 32,
         width: 15 * 32,
@@ -634,16 +635,6 @@ function generateMapJSON() {
             customBounds: treeBounds
         });
     };
-
-    for(let i = 0; i < 15; i++) {
-        addTree(5 + i * 7, 2);
-        addTree(5 + i * 7, 15);
-        addTree(5 + i * 7, 35);
-        addTree(2, 5 + i * 5);
-        addTree(38, 5 + i * 5);
-        addTree(70, 5 + i * 5);
-        addTree(100, 5 + i * 5);
-    }
     
     // Animals
     const animalBounds = { x: 0, y: 0, w: 1, h: 1 };
@@ -785,6 +776,116 @@ function generateMapJSON() {
             ]
         }
     ];
+
+    // Trees: random natural placement while preserving houses and task places.
+    const TREE_TILE_W = 4;
+    const TREE_TILE_H = 4;
+    const TREE_TARGET_COUNT = 105;
+    const TREE_MIN_DIST = 3;
+    const HOUSE_EXCLUSION_PAD = 2;
+    const TASK_ZONE_EXCLUSION_PAD = 4;
+    const TASK_LANDMARK_EXCLUSION_PAD = 3;
+    const POND_EXCLUSION_PAD = 4;
+
+    const toTileRect = (x, y, w, h, padTiles = 0) => {
+        const minX = Math.max(0, Math.floor(x / TILE_SIZE) - padTiles);
+        const minY = Math.max(0, Math.floor(y / TILE_SIZE) - padTiles);
+        const maxX = Math.min(MAP_COLS, Math.ceil((x + w) / TILE_SIZE) + padTiles);
+        const maxY = Math.min(MAP_ROWS, Math.ceil((y + h) / TILE_SIZE) + padTiles);
+        return { x: minX, y: minY, w: Math.max(0, maxX - minX), h: Math.max(0, maxY - minY) };
+    };
+
+    const rectsIntersect = (a, b) => (
+        a.x < b.x + b.w &&
+        a.x + a.w > b.x &&
+        a.y < b.y + b.h &&
+        a.y + a.h > b.y
+    );
+
+    const isPathLikeTile = (x, y) => {
+        const t = getTile(x, y);
+        return t === P || t === GA;
+    };
+
+    const protectedObjectRects = imageObjects
+        .filter(obj => /^house\d+$/.test(obj.name) || obj.name === 'school')
+        .map(obj => toTileRect(obj.x, obj.y, obj.width || TILE_SIZE, obj.height || TILE_SIZE, HOUSE_EXCLUSION_PAD));
+
+    const isTaskZone = (zone) =>
+        Array.isArray(zone.properties) && zone.properties.some(prop => prop?.name === 'taskId' && !!prop.value);
+    const protectedTaskRects = zoneObjects
+        .filter(isTaskZone)
+        .map(zone => toTileRect(zone.x, zone.y, zone.width || TILE_SIZE, zone.height || TILE_SIZE, TASK_ZONE_EXCLUSION_PAD));
+
+    const taskLandmarkNames = new Set(['football_ground_entry', 'park_location']);
+    const protectedTaskLandmarkRects = imageObjects
+        .filter(obj => taskLandmarkNames.has(obj.name))
+        .map(obj => toTileRect(obj.x, obj.y, obj.width || TILE_SIZE, obj.height || TILE_SIZE, TASK_LANDMARK_EXCLUSION_PAD));
+
+    const protectedPondRects = imageObjects
+        .filter(obj => obj.name === 'pond')
+        .map(obj => toTileRect(obj.x, obj.y, obj.width || TILE_SIZE, obj.height || TILE_SIZE, POND_EXCLUSION_PAD));
+
+    const reservedTreeRects = [...protectedObjectRects, ...protectedTaskRects, ...protectedTaskLandmarkRects, ...protectedPondRects];
+    const treePlacements = [];
+
+    const canPlaceTreeAt = (x, y) => {
+        if (x < 0 || y < 0 || x + TREE_TILE_W > MAP_COLS || y + TREE_TILE_H > MAP_ROWS) return false;
+
+        const treeRect = { x, y, w: TREE_TILE_W, h: TREE_TILE_H };
+
+        // Keep tree canopies and trunks off roads.
+        for (let yy = y; yy < y + TREE_TILE_H; yy++) {
+            for (let xx = x; xx < x + TREE_TILE_W; xx++) {
+                if (isPathLikeTile(xx, yy)) return false;
+            }
+        }
+
+        // Keep trees out of protected areas (houses + task places).
+        for (const rect of reservedTreeRects) {
+            if (rectsIntersect(treeRect, rect)) return false;
+        }
+
+        // Keep spacing between tree trunks for a natural look.
+        const trunkX = x + 2;
+        const trunkY = y + 3;
+        for (const placed of treePlacements) {
+            const dx = placed.trunkX - trunkX;
+            const dy = placed.trunkY - trunkY;
+            if (dx * dx + dy * dy < TREE_MIN_DIST * TREE_MIN_DIST) return false;
+        }
+
+        return true;
+    };
+
+    const treeRng = mulberry32(20260420);
+    const minTreeX = 1;
+    const maxTreeX = MAP_COLS - TREE_TILE_W - 1;
+    const minTreeY = 1;
+    const maxTreeY = MAP_ROWS - TREE_TILE_H - 1;
+
+    let tries = 0;
+    const maxTries = 40000;
+
+    while (treePlacements.length < TREE_TARGET_COUNT && tries < maxTries) {
+        tries++;
+        const x = minTreeX + Math.floor(treeRng() * (maxTreeX - minTreeX + 1));
+        const y = minTreeY + Math.floor(treeRng() * (maxTreeY - minTreeY + 1));
+        if (!canPlaceTreeAt(x, y)) continue;
+        treePlacements.push({ trunkX: x + 2, trunkY: y + 3 });
+        addTree(x, y);
+    }
+
+    // Fallback pass if random attempts are not enough.
+    if (treePlacements.length < TREE_TARGET_COUNT) {
+        for (let y = minTreeY; y <= maxTreeY && treePlacements.length < TREE_TARGET_COUNT; y++) {
+            for (let x = minTreeX; x <= maxTreeX && treePlacements.length < TREE_TARGET_COUNT; x++) {
+                if (!canPlaceTreeAt(x, y)) continue;
+                treePlacements.push({ trunkX: x + 2, trunkY: y + 3 });
+                addTree(x, y);
+            }
+        }
+    }
 
     const json = {
         compressionlevel: -1, height: MAP_ROWS, width: MAP_COLS,

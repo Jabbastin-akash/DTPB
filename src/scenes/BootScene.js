@@ -107,7 +107,12 @@ class BootScene extends Phaser.Scene {
         this.load.image('class_src', `assets/School/Class.png?v=${ASSET_V}`);
 
         // Additional world textures referenced by newer scenes/zones
-        this.load.image('pond', 'assets/Pond.png');
+        this.load.spritesheet('pond', 'assets/Pond.png', {
+            frameWidth: 344,
+            frameHeight: 274,
+            margin: 4,
+            spacing: 6
+        });
         this.load.image('park_location_img', `assets/Park/Park.png?v=${ASSET_V}_park5`);
         this.load.image('path_tile', 'assets/Path.png');
         this.load.image('football_ground_img', `assets/Football/football-ground.png?v=${ASSET_V}`);
@@ -588,6 +593,9 @@ class BootScene extends Phaser.Scene {
             }
             if (this.textures.exists('fountain') && !this.anims.exists('fountain_anim')) {
                 this.anims.create({ key: 'fountain_anim', frames: this.anims.generateFrameNumbers('fountain', { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
+            }
+            if (this.textures.exists('pond') && !this.anims.exists('pond_anim')) {
+                this.anims.create({ key: 'pond_anim', frames: this.anims.generateFrameNumbers('pond', { start: 0, end: 15 }), frameRate: 8, repeat: -1 });
             }
         };
 
