@@ -50,25 +50,28 @@ class GameScene extends Phaser.Scene {
             img.displayHeight = drawH;
             if (obj.anim) img.play(obj.anim);
             
-            // Sorting based on the very bottom of the image
-            img.setDepth(obj.y + drawH);
-            this.imageItems.push({ img, bottom: obj.y + drawH });
+            // Large background art can provide explicit depth to stay behind actors.
+            const imageDepth = (typeof obj.depth === 'number') ? obj.depth : (obj.y + drawH);
+            img.setDepth(imageDepth);
+            this.imageItems.push({ img, bottom: imageDepth });
 
-            // Default bounds if missing (bounds are relative to the sprite's top-left)
-            const rawBounds = obj.customBounds || { x: 0, y: 0, w: baseW, h: baseH };
-            const b = (scaleFactor === 1)
-                ? rawBounds
-                : {
-                    x: Math.round(rawBounds.x * scaleFactor),
-                    y: Math.round(rawBounds.y * scaleFactor),
-                    w: Math.max(1, Math.round(rawBounds.w * scaleFactor)),
-                    h: Math.max(1, Math.round(rawBounds.h * scaleFactor))
-                };
-            
-            // Draw a physics body
-            const dummy = this.add.zone(obj.x + b.x + b.w / 2, obj.y + b.y + b.h / 2, b.w, b.h);
-            this.physics.add.existing(dummy, true); // static body
-            this.staticObjects.add(dummy);
+            if (obj.collidable !== false) {
+                // Default bounds if missing (bounds are relative to the sprite's top-left)
+                const rawBounds = obj.customBounds || { x: 0, y: 0, w: baseW, h: baseH };
+                const b = (scaleFactor === 1)
+                    ? rawBounds
+                    : {
+                        x: Math.round(rawBounds.x * scaleFactor),
+                        y: Math.round(rawBounds.y * scaleFactor),
+                        w: Math.max(1, Math.round(rawBounds.w * scaleFactor)),
+                        h: Math.max(1, Math.round(rawBounds.h * scaleFactor))
+                    };
+
+                // Draw a physics body
+                const dummy = this.add.zone(obj.x + b.x + b.w / 2, obj.y + b.y + b.h / 2, b.w, b.h);
+                this.physics.add.existing(dummy, true); // static body
+                this.staticObjects.add(dummy);
+            }
 
             // Add floaty animation to certain decors
             if (obj.key === 'decor_cart') {
@@ -547,9 +550,10 @@ class GameScene extends Phaser.Scene {
 
     createShopZone() {
         // Place new explicit assets to enhance the map
-        const extraSprites = [
-            { key: 'bull', x: 5 * 32, y: 12 * 32, scale: 0.8, anim: 'bull_anim', minSpeed: 18, maxSpeed: 38 },
-        ];
+        const extraSprites = [];
+        if (this.textures.exists('bull') && this.anims.exists('bull_anim')) {
+            extraSprites.push({ key: 'bull', x: 5 * 32, y: 12 * 32, scale: 0.8, anim: 'bull_anim', minSpeed: 18, maxSpeed: 38 });
+        }
 
         extraSprites.forEach(obj => {
             const sprite = this.physics.add.sprite(obj.x, obj.y, obj.key).setOrigin(0.5, 1);

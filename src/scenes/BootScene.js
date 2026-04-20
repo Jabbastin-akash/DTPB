@@ -108,6 +108,7 @@ class BootScene extends Phaser.Scene {
 
         // Additional world textures referenced by newer scenes/zones
         this.load.image('pond', 'assets/Pond.png');
+        this.load.image('park_location_img', `assets/Park/Park.png?v=${ASSET_V}_park5`);
         this.load.image('path_tile', 'assets/Path.png');
         this.load.image('football_ground_img', `assets/Football/football-ground.png?v=${ASSET_V}`);
 
@@ -133,22 +134,7 @@ class BootScene extends Phaser.Scene {
         // Store image objects data globally or in registry so we can fetch them in GameScene
         this.registry.set('imageObjects', mapData.imageObjects);
 
-        // Trim+contain a source image into a fixed output size (preserves aspect ratio).
-        const makeTrimmedContainedTexture = (srcKey, destKey, outW, outH, alphaThreshold = 1) => {
-            const srcImg = this.textures.get(srcKey)?.getSourceImage?.();
-            if (!srcImg) return;
-
-            const srcCanvas = document.createElement('canvas');
-            srcCanvas.width = srcImg.width;
-            srcCanvas.height = srcImg.height;
-            const srcCtx = srcCanvas.getContext('2d', { willReadFrequently: true });
-            srcCtx.imageSmoothingEnabled = false;
-            srcCtx.clearRect(0, 0, srcCanvas.width, srcCanvas.height);
-            srcCtx.drawImage(srcImg, 0, 0);
-
-            const { data } = srcCtx.getImageData(0, 0, srcCanvas.width, srcCanvas.height);
-            const w = srcCanvas.width;
-            const h = srcCanvas.height;
+        const getAlphaBounds = (data, w, h, alphaThreshold = 1) => {
             let minX = w;
             let minY = h;
             let maxX = -1;
@@ -165,10 +151,16 @@ class BootScene extends Phaser.Scene {
                 if (y > maxY) maxY = y;
             }
 
-            if (maxX < 0) return;
-            const trimW = maxX - minX + 1;
-            const trimH = maxY - minY + 1;
+            if (maxX < 0) return null;
+            return {
+                minX,
+                minY,
+                trimW: maxX - minX + 1,
+                trimH: maxY - minY + 1
+            };
+        };
 
+        const createContainedCanvas = (srcCanvas, bounds, outW, outH) => {
             const outCanvas = document.createElement('canvas');
             outCanvas.width = outW;
             outCanvas.height = outH;
@@ -176,16 +168,52 @@ class BootScene extends Phaser.Scene {
             outCtx.imageSmoothingEnabled = false;
             outCtx.clearRect(0, 0, outW, outH);
 
-            const scale = Math.min(outW / trimW, outH / trimH);
-            const drawW = Math.max(1, Math.round(trimW * scale));
-            const drawH = Math.max(1, Math.round(trimH * scale));
+            const scale = Math.min(outW / bounds.trimW, outH / bounds.trimH);
+            const drawW = Math.max(1, Math.round(bounds.trimW * scale));
+            const drawH = Math.max(1, Math.round(bounds.trimH * scale));
             const dx = Math.floor((outW - drawW) / 2);
             const dy = Math.floor((outH - drawH) / 2);
-            outCtx.drawImage(srcCanvas, minX, minY, trimW, trimH, dx, dy, drawW, drawH);
 
-            if (this.textures.exists(destKey)) this.textures.remove(destKey);
-            this.textures.addCanvas(destKey, outCanvas);
+            outCtx.drawImage(
+                srcCanvas,
+                bounds.minX,
+                bounds.minY,
+                bounds.trimW,
+                bounds.trimH,
+                dx,
+                dy,
+                drawW,
+                drawH
+            );
+
+            return outCanvas;
         };
+
+        const publishCanvasTexture = (destKey, canvas) => {
+            if (this.textures.exists(destKey)) this.textures.remove(destKey);
+            this.textures.addCanvas(destKey, canvas);
+        };
+
+        // Trim+contain a source image into a fixed output size (preserves aspect ratio).
+        const makeTrimmedContainedTexture = (srcKey, destKey, outW, outH, alphaThreshold = 1) => {
+            const srcImg = this.textures.get(srcKey)?.getSourceImage?.();
+            if (!srcImg) return;
+
+            const srcCanvas = document.createElement('canvas');
+            srcCanvas.width = srcImg.width;
+            srcCanvas.height = srcImg.height;
+            const srcCtx = srcCanvas.getContext('2d', { willReadFrequently: true });
+            srcCtx.imageSmoothingEnabled = false;
+            srcCtx.clearRect(0, 0, srcCanvas.width, srcCanvas.height);
+            srcCtx.drawImage(srcImg, 0, 0);
+
+            const { data } = srcCtx.getImageData(0, 0, srcCanvas.width, srcCanvas.height);
+            const bounds = getAlphaBounds(data, srcCanvas.width, srcCanvas.height, alphaThreshold);
+            if (!bounds) return;
+
+            publishCanvasTexture(destKey, createContainedCanvas(srcCanvas, bounds, outW, outH));
+        };
+
 
         // Build the in-game house textures from the new PNGs while keeping the same
         // output dimensions as the previous map layout/collision geometry.
@@ -555,10 +583,10 @@ class BootScene extends Phaser.Scene {
         };
 
         const createExtraAnimations = () => {
-            if (!this.anims.exists('bull_anim')) {
+            if (this.textures.exists('bull') && !this.anims.exists('bull_anim')) {
                 this.anims.create({ key: 'bull_anim', frames: this.anims.generateFrameNumbers('bull', { start: 0, end: 3 }), frameRate: 4, repeat: -1 });
             }
-            if (!this.anims.exists('fountain_anim')) {
+            if (this.textures.exists('fountain') && !this.anims.exists('fountain_anim')) {
                 this.anims.create({ key: 'fountain_anim', frames: this.anims.generateFrameNumbers('fountain', { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
             }
         };

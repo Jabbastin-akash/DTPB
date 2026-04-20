@@ -2,8 +2,8 @@
 // Generates tileset PNG and Tiled-format JSON map data programmatically
 
 const TILE_SIZE = 32;
-window.MAP_COLS = 60;
-window.MAP_ROWS = 40;
+window.MAP_COLS = 120;
+window.MAP_ROWS = 80;
 
 // Tile IDs (match Tiled convention: 0 = empty, 1+ = tileset index)
 window.TID = {
@@ -542,26 +542,25 @@ function generateMapJSON() {
         }
     }
 
-    // --- EXPANDED 40x30 MAP LAYOUT ---
+    // --- EXPANDED 120x80 MAP LAYOUT ---
     
     // Main Roads
-    paintPathH(7, 0, MAP_COLS - 1, 2); // Top horizontal
-    paintPathH(20, 0, MAP_COLS - 1, 2); // Lower horizontal
-    paintPathV(9, 7, 20, 2); // Left vertical connector
-    paintPathV(26, 7, 26, 2); // Right vertical connector down to shop area
-
-    // Shop Area: keep default grass pattern for a uniform green look.
+    paintPathH(10, 0, MAP_COLS - 1, 3); // Top horizontal
+    paintPathH(30, 0, MAP_COLS - 1, 3); // Middle horizontal
+    paintPathH(50, 0, MAP_COLS - 1, 3); // Lower horizontal
+    paintPathV(15, 10, 50, 3); // Left vertical connector
+    paintPathV(40, 10, 50, 3); // Middle vertical connector
+    paintPathV(65, 10, 50, 3); // Right vertical connector
+    paintPathV(90, 10, 50, 3); // Far-right vertical connector
 
     // Beautiful park area path loop
-    paintPathH(13, 14, 22, 1);
-    paintPathH(18, 14, 22, 1);
-    paintPathV(14, 13, 18, 1);
-    paintPathV(22, 13, 18, 1);
-
-    // Lake removed in favor of a single pond image object (see imageObjects below).
+    paintPathH(20, 20, 35, 2);
+    paintPathH(28, 20, 35, 2);
+    paintPathV(20, 20, 28, 2);
+    paintPathV(35, 20, 28, 2);
 
     // Gate entry
-    setTile(25, 29, GA); setTile(26, 29, GA); setTile(27, 29, GA);
+    setTile(60, 52, GA); setTile(61, 52, GA); setTile(62, 52, GA);
 
     // Data arrays
     const groundData = [];
@@ -578,31 +577,47 @@ function generateMapJSON() {
     // Generate Craftpix Image Objects
     const imageObjects = [];
 
-    // Imported houses from assets/Hope.png
-    imageObjects.push({ name: 'house1', key: 'house1', x: 5*32, y: 2*32, width: 157, height: 104, customBounds: { x: 18, y: 62, w: 121, h: 34 } });
-    imageObjects.push({ name: 'house2', key: 'house2', x: 29*32, y: 2*32, width: 113, height: 103, customBounds: { x: 14, y: 62, w: 85, h: 33 } });
-    imageObjects.push({ name: 'house3', key: 'house3', x: 5*32 - 8, y: 13*32, width: 139, height: 80, customBounds: { x: 16, y: 48, w: 107, h: 24 } });
-    imageObjects.push({ name: 'house4', key: 'house4', x: 30*32, y: 13*32, width: 90, height: 109, customBounds: { x: 10, y: 67, w: 70, h: 34 } });
-    imageObjects.push({ name: 'school', key: 'school_building', x: 17*32, y: 2*32, width: 127, height: 112, customBounds: { x: 14, y: 66, w: 99, h: 38 } });
-    imageObjects.push({ name: 'house3b', key: 'house6', x: 10*32, y: 2*32, width: 139, height: 80, customBounds: { x: 16, y: 48, w: 107, h: 24 } });
-    imageObjects.push({ name: 'house4b', key: 'house7', x: 22*32, y: 2*32, width: 90, height: 109, customBounds: { x: 10, y: 67, w: 70, h: 34 } });
+    // Imported houses from assets/Hope.png - Repositioned and more added
+    imageObjects.push({ name: 'house1', key: 'house1', x: 8*32, y: 4*32, width: 157, height: 104, customBounds: { x: 18, y: 62, w: 121, h: 34 } });
+    imageObjects.push({ name: 'house2', key: 'house2', x: 25*32, y: 4*32, width: 113, height: 103, customBounds: { x: 14, y: 62, w: 85, h: 33 } });
+    imageObjects.push({ name: 'house3', key: 'house3', x: 50*32, y: 4*32, width: 139, height: 80, customBounds: { x: 16, y: 48, w: 107, h: 24 } });
+    imageObjects.push({ name: 'house4', key: 'house4', x: 75*32, y: 4*32, width: 90, height: 109, customBounds: { x: 10, y: 67, w: 70, h: 34 } });
+    imageObjects.push({ name: 'school', key: 'school_building', x: 45*32, y: 20*32, width: 127, height: 112, customBounds: { x: 14, y: 66, w: 99, h: 38 } });
     
-    // Fountain replaces old FOUNTAIN tiles
-    imageObjects.push({ name: 'fountain', key: 'fountain', anim: 'fountain_anim', x: 18 * 32, y: 15 * 32 - 16, width: 64, height: 64, customBounds: { x: 0, y: 32, w: 64, h: 32 } });
+    imageObjects.push({ name: 'house5', key: 'house5', x: 8*32, y: 22*32, width: 157, height: 104, customBounds: { x: 18, y: 62, w: 121, h: 34 } });
+    imageObjects.push({ name: 'house6', key: 'house6', x: 25*32, y: 40*32, width: 113, height: 103, customBounds: { x: 14, y: 62, w: 85, h: 33 } });
+    imageObjects.push({ name: 'house7', key: 'house7', x: 50*32, y: 40*32, width: 139, height: 80, customBounds: { x: 16, y: 48, w: 107, h: 24 } });
+    imageObjects.push({ name: 'house8', key: 'house8', x: 75*32, y: 22*32, width: 90, height: 109, customBounds: { x: 10, y: 67, w: 70, h: 34 } });
+    imageObjects.push({ name: 'house9', key: 'house9', x: 95*32, y: 15*32, width: 127, height: 112, customBounds: { x: 14, y: 66, w: 99, h: 38 } });
 
-    // Pond (replaces old water tile lake)
+    // Park location artwork provided by user.
+    imageObjects.push({
+        name: 'park_location',
+        key: 'park_location_img',
+        x: 76 * 32,
+        y: 39 * 32,
+        width: 11 * 32,
+        height: 11 * 32,
+        depth: 0.5,
+        collidable: false
+    });
+
+    // Fountain
+    imageObjects.push({ name: 'fountain', key: 'fountain', anim: 'fountain_anim', x: 27 * 32, y: 24 * 32 - 16, width: 64, height: 64, customBounds: { x: 0, y: 32, w: 64, h: 32 } });
+
+    // Pond
     imageObjects.push({
         name: 'pond',
         key: 'pond',
-        x: 32 * 32,
-        y: 24 * 32,
-        width: 7 * 32,
-        height: 5 * 32,
+        x: 80 * 32,
+        y: 60 * 32,
+        width: 15 * 32,
+        height: 10 * 32,
         depth: 1,
-        customBounds: { x: 16, y: 24, w: 7 * 32 - 32, h: 5 * 32 - 32 }
+        customBounds: { x: 16, y: 24, w: 15 * 32 - 32, h: 10 * 32 - 32 }
     });
 
-    // Trees along both sides with spacing
+    // Trees
     const treeKeys = [
         'tree_apple_1', 'tree_apple_2', 'tree_apple_3', 'tree_apple_4', 'tree_apple_5', 'tree_apple_6',
         'tree_orange_1', 'tree_orange_2', 'tree_orange_3', 'tree_orange_4',
@@ -610,29 +625,29 @@ function generateMapJSON() {
     ];
     const treeBounds = { x: 52, y: 88, w: 24, h: 28 };
     const pickTreeKey = (x, y) => treeKeys[Math.floor(hash01(x, y, 913) * treeKeys.length)];
-    const addTree = (x, y, i) => {
+    const addTree = (x, y) => {
         imageObjects.push({
-            name: `tree_${x}_${y}_${i}`,
+            name: `tree_${x}_${y}`,
             key: pickTreeKey(x, y),
-            x,
-            y,
+            x: x * 32,
+            y: y * 32,
             customBounds: treeBounds
         });
     };
 
-    const leftYs = [2, 7, 12, 17];
-    leftYs.forEach((ty, i) => addTree(1 * 32, ty * 32, i));
-
-    const rightYs = [4, 9, 14, 19];
-    // Keep the original right-side tree line (for the original 40x30 layout)...
-    rightYs.forEach((ty, i) => addTree(36 * 32, ty * 32, i));
-    // ...and add another line on the new far-right edge for expanded maps.
-    const farRightTreeX = (MAP_COLS - 4) * 32;
-    rightYs.forEach((ty, i) => addTree(farRightTreeX, ty * 32, i + 100));
-
-    // Animals along both sides with spacing
+    for(let i = 0; i < 15; i++) {
+        addTree(5 + i * 7, 2);
+        addTree(5 + i * 7, 15);
+        addTree(5 + i * 7, 35);
+        addTree(2, 5 + i * 5);
+        addTree(38, 5 + i * 5);
+        addTree(70, 5 + i * 5);
+        addTree(100, 5 + i * 5);
+    }
+    
+    // Animals
     const animalBounds = { x: 0, y: 0, w: 1, h: 1 };
-    const makeRoamBounds = (x, y, tilesW = 2, tilesH = 2) => {
+    const makeRoamBounds = (x, y, tilesW = 5, tilesH = 5) => {
         const w = tilesW * 32;
         const h = tilesH * 32;
         const maxX = MAP_COLS * 32 - w;
@@ -641,81 +656,67 @@ function generateMapJSON() {
         const ry = Math.max(0, Math.min(y - Math.floor(h / 2), maxY));
         return { x: rx, y: ry, w, h };
     };
-    const leftAnimals = [
-        { key: 'pet_cat_idle_sheet', anim: 'pet_cat_idle', walkAnim: 'pet_cat_walk', y: 2 },
-        { key: 'animal_bird_idle_sheet', anim: 'animal_bird_idle', walkAnim: 'animal_bird_walk', y: 12 },
-        { key: 'animal_rat_idle_sheet', anim: 'animal_rat_idle', walkAnim: 'animal_rat_walk', y: 20 },
-        { key: 'animal_cat2_idle_sheet', anim: 'animal_cat2_idle', walkAnim: 'animal_cat2_walk', y: 29 }
+    
+    const allAnimals = [
+        { key: 'pet_cat_idle_sheet', anim: 'pet_cat_idle', walkAnim: 'pet_cat_walk' },
+        { key: 'animal_bird_idle_sheet', anim: 'animal_bird_idle', walkAnim: 'animal_bird_walk' },
+        { key: 'animal_rat_idle_sheet', anim: 'animal_rat_idle', walkAnim: 'animal_rat_walk' },
+        { key: 'animal_cat2_idle_sheet', anim: 'animal_cat2_idle', walkAnim: 'animal_cat2_walk' },
+        { key: 'pet_dog_idle_sheet', anim: 'pet_dog_idle', walkAnim: 'pet_dog_walk' },
+        { key: 'animal_bird2_idle_sheet', anim: 'animal_bird2_idle', walkAnim: 'animal_bird2_walk' },
+        { key: 'animal_rat2_idle_sheet', anim: 'animal_rat2_idle', walkAnim: 'animal_rat2_walk' },
+        { key: 'animal_dog2_idle_sheet', anim: 'animal_dog2_idle', walkAnim: 'animal_dog2_walk' }
     ];
-    leftAnimals.forEach((a, i) => imageObjects.push({
-        name: `animal_left_${i}`,
-        key: a.key,
-        anim: a.anim,
-        walkAnim: a.walkAnim,
-        x: 0 * 32,
-        y: a.y * 32,
-        roam: true,
-        roamBounds: makeRoamBounds(0 * 32, a.y * 32, 2, 2),
-        roamMinSpeed: 14,
-        roamMaxSpeed: 26,
-        customBounds: animalBounds
-    }));
 
-    const rightAnimals = [
-        { key: 'pet_dog_idle_sheet', anim: 'pet_dog_idle', walkAnim: 'pet_dog_walk', y: 3 },
-        { key: 'animal_bird2_idle_sheet', anim: 'animal_bird2_idle', walkAnim: 'animal_bird2_walk', y: 13 },
-        { key: 'animal_rat2_idle_sheet', anim: 'animal_rat2_idle', walkAnim: 'animal_rat2_walk', y: 24 },
-        { key: 'animal_dog2_idle_sheet', anim: 'animal_dog2_idle', walkAnim: 'animal_dog2_walk', y: 29 }
-    ];
-    rightAnimals.forEach((a, i) => imageObjects.push({
-        name: `animal_right_${i}`,
-        key: a.key,
-        anim: a.anim,
-        walkAnim: a.walkAnim,
-        x: 37 * 32,
-        y: a.y * 32,
-        roam: true,
-        roamBounds: makeRoamBounds(37 * 32, a.y * 32, 2, 2),
-        roamMinSpeed: 14,
-        roamMaxSpeed: 26,
-        customBounds: animalBounds
-    }));
+    for(let i = 0; i < 10; i++) {
+        const x = Math.floor(hash01(i, 0) * MAP_COLS);
+        const y = Math.floor(hash01(i, 1) * MAP_ROWS);
+        const animal = allAnimals[i % allAnimals.length];
+        imageObjects.push({
+            name: `animal_${i}`,
+            key: animal.key,
+            anim: animal.anim,
+            walkAnim: animal.walkAnim,
+            x: x * 32,
+            y: y * 32,
+            roam: true,
+            roamBounds: makeRoamBounds(x * 32, y * 32, 10, 10),
+            roamMinSpeed: 14,
+            roamMaxSpeed: 26,
+            customBounds: animalBounds
+        });
+    }
 
-    // Football ground (make it a solid obstacle so the player can't walk over the pitch)
+    // Football ground
     imageObjects.push({
         name: 'football_ground_entry',
         key: 'football_ground_img',
-        x: 2 * 32 + 4,
-        y: 22 * 32 + 4,
-        width: 8 * 32 - 8,
-        height: 6 * 32 - 8,
+        x: 18 * 32,
+        y: 55 * 32,
+        width: 12 * 32,
+        height: 8 * 32,
         depth: 0,
-        customBounds: { x: 0, y: 0, w: 8 * 32 - 8, h: 6 * 32 - 8 }
+        customBounds: { x: 0, y: 0, w: 12 * 32, h: 8 * 32 }
     });
 
-    // NPCs (non-task). Story progression is handled via Zones.
+    // NPCs
     const npcObjects = [
-        { id: 1, name: 'guide', type: 'npc', x: 22 * 32, y: 18 * 32, width: 32, height: 32, properties: [{ name: 'npcId', type: 'string', value: 'guide' }] },
-        { id: 7, name: 'shopkeeper', type: 'npc', x: 26 * 32, y: 24 * 32, width: 32, height: 32, properties: [{ name: 'npcId', type: 'string', value: 'shopkeeper' }] },
-        { id: 8, name: 'villager1', type: 'npc', x: 12 * 32, y: 12 * 32, width: 32, height: 32, properties: [{ name: 'npcId', type: 'string', value: 'villager1' }] },
-        { id: 9, name: 'villager2', type: 'npc', x: 29 * 32, y: 15 * 32, width: 32, height: 32, properties: [{ name: 'npcId', type: 'string', value: 'villager2' }] },
+        { id: 1, name: 'guide', type: 'npc', x: 60 * 32, y: 48 * 32, width: 32, height: 32, properties: [{ name: 'npcId', type: 'string', value: 'guide' }] },
+        { id: 7, name: 'shopkeeper', type: 'npc', x: 60 * 32, y: 55 * 32, width: 32, height: 32, properties: [{ name: 'npcId', type: 'string', value: 'shopkeeper' }] },
+        { id: 8, name: 'villager1', type: 'npc', x: 20 * 32, y: 25 * 32, width: 32, height: 32, properties: [{ name: 'npcId', type: 'string', value: 'villager1' }] },
+        { id: 9, name: 'villager2', type: 'npc', x: 80 * 32, y: 35 * 32, width: 32, height: 32, properties: [{ name: 'npcId', type: 'string', value: 'villager2' }] },
+        { id: 10, name: 'villager3', type: 'npc', x: 10 * 32, y: 45 * 32, width: 32, height: 32, properties: [{ name: 'npcId', type: 'string', value: 'villager3' }] },
+        { id: 11, name: 'villager4', type: 'npc', x: 95 * 32, y: 60 * 32, width: 32, height: 32, properties: [{ name: 'npcId', type: 'string', value: 'villager4' }] },
     ];
 
     const spawnObjects = [
-        { id: 100, name: 'spawn', type: 'spawn', x: 26 * 32, y: 28 * 32, width: 32, height: 32 }
+        { id: 100, name: 'spawn', type: 'spawn', x: 60 * 32, y: 58 * 32, width: 32, height: 32 }
     ];
 
-    // Story locations (Zones). Only the next unlocked zone is actionable.
-    // IMPORTANT: Object x/y are treated as top-left (consistent with NPC placement).
+    // Story locations (Zones)
     const zoneObjects = [
         {
-            id: 200,
-            name: 'home',
-            type: 'zone',
-            x: 4 * 32,
-            y: 5 * 32,
-            width: 7 * 32,
-            height: 5 * 32,
+            id: 200, name: 'home', type: 'zone', x: 8 * 32, y: 8 * 32, width: 7 * 32, height: 5 * 32,
             properties: [
                 { name: 'taskId', type: 'string', value: 'task1' },
                 { name: 'label', type: 'string', value: 'Home Conversation' },
@@ -724,14 +725,7 @@ function generateMapJSON() {
             ]
         },
         {
-            id: 201,
-            name: 'playground',
-            type: 'zone',
-            // Entry point for the football task (kept outside the pitch obstacle)
-            x: 4 * 32,
-            y: 28 * 32,
-            width: 4 * 32,
-            height: 2 * 32,
+            id: 201, name: 'playground', type: 'zone', x: 18 * 32, y: 63 * 32, width: 12 * 32, height: 2 * 32,
             properties: [
                 { name: 'taskId', type: 'string', value: 'task2' },
                 { name: 'label', type: 'string', value: 'Football Ground' },
@@ -741,14 +735,7 @@ function generateMapJSON() {
             ]
         },
         {
-            id: 202,
-            name: 'classroom',
-            type: 'zone',
-            // Place the classroom task at the School building area (so the mission arrow guides to School).
-            x: 14 * 32,
-            y: 5 * 32,
-            width: 9 * 32,
-            height: 5 * 32,
+            id: 202, name: 'classroom', type: 'zone', x: 45 * 32, y: 25 * 32, width: 9 * 32, height: 5 * 32,
             properties: [
                 { name: 'taskId', type: 'string', value: 'task3a' },
                 { name: 'label', type: 'string', value: 'Classroom' },
@@ -757,13 +744,7 @@ function generateMapJSON() {
             ]
         },
         {
-            id: 203,
-            name: 'corridor',
-            type: 'zone',
-            x: 28 * 32,
-            y: 17 * 32,
-            width: 8 * 32,
-            height: 7 * 32,
+            id: 203, name: 'corridor', type: 'zone', x: 75 * 32, y: 26 * 32, width: 8 * 32, height: 7 * 32,
             properties: [
                 { name: 'taskId', type: 'string', value: 'task6' },
                 { name: 'label', type: 'string', value: 'Corridor: Ideate' },
@@ -771,13 +752,7 @@ function generateMapJSON() {
             ]
         },
         {
-            id: 204,
-            name: 'maze',
-            type: 'zone',
-            x: 24 * 32,
-            y: 27 * 32,
-            width: 5 * 32,
-            height: 3 * 32,
+            id: 204, name: 'maze', type: 'zone', x: 50 * 32, y: 60 * 32, width: 5 * 32, height: 3 * 32,
             properties: [
                 { name: 'taskId', type: 'string', value: 'task5' },
                 { name: 'label', type: 'string', value: 'Maze' },
@@ -786,13 +761,7 @@ function generateMapJSON() {
             ]
         },
         {
-            id: 205,
-            name: 'park',
-            type: 'zone',
-            x: 14 * 32,
-            y: 13 * 32,
-            width: 9 * 32,
-            height: 6 * 32,
+            id: 205, name: 'park', type: 'zone', x: 80 * 32, y: 46 * 32, width: 5 * 32, height: 4 * 32,
             properties: [
                 { name: 'taskId', type: 'string', value: 'task3b' },
                 { name: 'label', type: 'string', value: 'Park: Sad/Happy' },
@@ -800,13 +769,7 @@ function generateMapJSON() {
             ]
         },
         {
-            id: 206,
-            name: 'school',
-            type: 'zone',
-            x: 14 * 32,
-            y: 5 * 32,
-            width: 9 * 32,
-            height: 5 * 32,
+            id: 206, name: 'school_zone', type: 'zone', x: 45 * 32, y: 25 * 32, width: 9 * 32, height: 5 * 32,
             properties: [
                 { name: 'taskId', type: 'string', value: 'task7' },
                 { name: 'label', type: 'string', value: 'School' },
@@ -814,13 +777,7 @@ function generateMapJSON() {
             ]
         },
         {
-            id: 207,
-            name: 'landmark',
-            type: 'zone',
-            x: 28 * 32,
-            y: 6 * 32,
-            width: 8 * 32,
-            height: 6 * 32,
+            id: 207, name: 'landmark', type: 'zone', x: 95 * 32, y: 20 * 32, width: 8 * 32, height: 6 * 32,
             properties: [
                 { name: 'taskId', type: 'string', value: 'task4' },
                 { name: 'label', type: 'string', value: 'Landmark' },
