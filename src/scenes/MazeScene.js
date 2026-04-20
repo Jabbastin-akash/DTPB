@@ -36,11 +36,17 @@ class MazeScene extends Phaser.Scene {
 
         this.player = new Player(this, maze.start.x, maze.start.y);
         this.player.body.setCollideWorldBounds(true);
+        this.player.body.checkCollision.none = false;
+        this.player.body.setBounce(0);
+
+        // Improve collision stability at higher speeds
+        this.physics.world.TILE_BIAS = 32;
 
         this.walls = [];
         const makeWall = (x, y, ww, hh) => {
             const r = this.add.rectangle(x + ww / 2, y + hh / 2, ww, hh, 0x394864).setDepth(2);
             this.physics.add.existing(r, true);
+            r.body.checkCollision.none = false;
             this.physics.add.collider(this.player, r);
             this.walls.push(r);
         };
@@ -273,7 +279,33 @@ class MazeScene extends Phaser.Scene {
     }
 
     update() {
-        if (this.player) this.player.update();
+        if (!this.movementEnabled) {
+            if (this.player && this.player.body) {
+                this.player.body.setVelocity(0, 0);
+                if (this.player.animName && !this.player.animName.endsWith("_idle")) {
+                    this.player.animName = this.player.animName.replace("_walk", "_idle");
+                    this.player.play(this.player.animName, true);
+                }
+            }
+            return;
+        }
+        if (this.player && typeof this.player.update === "function") {
+            this.player.update();
+        } else if (this.player) {
+            // Basic fallback movement if player class is missing update logic
+            const speed = 120;
+            const keys = this.input.keyboard.createCursorKeys();
+            let vx = 0;
+            let vy = 0;
+            if (keys.left.isDown) vx = -speed;
+            else if (keys.right.isDown) vx = speed;
+            if (keys.up.isDown) vy = -speed;
+            else if (keys.down.isDown) vy = speed;
+            if (vx !== 0 && vy !== 0) {
+                vx *= 0.7071; vy *= 0.7071;
+            }
+            if (this.player.body) this.player.body.setVelocity(vx, vy);
+        }
     }
 
     openQuestion(checkpoint, checkpointRect) {

@@ -635,13 +635,46 @@ function generateMapJSON() {
         });
     };
 
+    // Organize trees in neat rows and columns instead of random placement
+    // Top row of trees
+    for(let i = 0; i < 16; i++) {
+        addTree(4 + i * 7, 2);
+    }
+    // Second row
+    for(let i = 0; i < 16; i++) {
+        addTree(4 + i * 7, 8);
+    }
+    // Third row
+    for(let i = 0; i < 16; i++) {
+        addTree(4 + i * 7, 14);
+    }
+    // Fourth row
+    for(let i = 0; i < 16; i++) {
+        addTree(4 + i * 7, 20);
+    }
+    // Fifth row (park area)
+    for(let i = 0; i < 16; i++) {
+        addTree(4 + i * 7, 35);
+    }
+    // Sixth row
+    for(let i = 0; i < 16; i++) {
+        addTree(4 + i * 7, 41);
+    }
+    
+    // Left vertical column
     for(let i = 0; i < 15; i++) {
-        addTree(5 + i * 7, 2);
-        addTree(5 + i * 7, 15);
-        addTree(5 + i * 7, 35);
         addTree(2, 5 + i * 5);
+    }
+    // Inner left vertical column
+    for(let i = 0; i < 15; i++) {
         addTree(38, 5 + i * 5);
+    }
+    // Inner right vertical column
+    for(let i = 0; i < 15; i++) {
         addTree(70, 5 + i * 5);
+    }
+    // Right vertical column
+    for(let i = 0; i < 15; i++) {
         addTree(100, 5 + i * 5);
     }
     

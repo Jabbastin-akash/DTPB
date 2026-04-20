@@ -33,11 +33,17 @@ class CharSelectScene extends Phaser.Scene {
 
         // Sprite preview (scaled up)
         const preview = this.add.sprite(0, -30, spriteKey, 0);
-        // Fit preview into the card regardless of sprite frame size
+        // Fit preview into the card regardless of sprite frame size/padding.
         const characterScale = gameState?.characterScale ?? 1;
-        const maxSize = Math.max(120, Math.round(120 * characterScale));
-        const denom = Math.max(preview.width || 1, preview.height || 1);
-        preview.setScale(maxSize / denom);
+        const maxW = Math.max(120, Math.round(120 * characterScale));
+        const maxH = Math.max(120, Math.round(120 * characterScale));
+        const fw = preview.frame?.realWidth ?? preview.width ?? 1;
+        const fh = preview.frame?.realHeight ?? preview.height ?? 1;
+        const sFit = Math.min(maxW / fw, maxH / fh);
+
+        const cfg = (typeof getCharacterConfig === 'function') ? getCharacterConfig(spriteKey) : null;
+        const previewScaleAdjust = cfg?.scaleMultiplier ?? 1;
+        preview.setScale(sFit * previewScaleAdjust);
 
         // Name
         const txt = this.add.text(0, 80, label, {

@@ -130,6 +130,17 @@ class GameScene extends Phaser.Scene {
         };
         this.input.keyboard.on('keydown-C', this._onDebugOpenClassroom);
 
+        // Debug shortcut: press M to open the Maze scene
+        this._onDebugOpenMaze = (e) => {
+            if (e?.stopPropagation) e.stopPropagation();
+            this.movementEnabled = false;
+            this.input.keyboard.resetKeys();
+            this.scene.stop("UIScene");
+            this.scene.start("MazeScene");
+        };
+        this.input.keyboard.on("keydown-M", this._onDebugOpenMaze);
+
+
         // Camera setup
         this.cameras.main.startFollow(this.player, true, 0.05, 0.05);
         this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
@@ -228,6 +239,7 @@ class GameScene extends Phaser.Scene {
             EventBus.off('points:added', this.onPointsAdded, this);
             if (this._onDebugOpenClassroom && this.input?.keyboard) {
                 this.input.keyboard.off('keydown-C', this._onDebugOpenClassroom);
+                this.input.keyboard.off('keydown-M', this._onDebugOpenMaze);
             }
         });
 

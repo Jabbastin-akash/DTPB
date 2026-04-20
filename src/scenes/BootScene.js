@@ -119,9 +119,15 @@ class BootScene extends Phaser.Scene {
 
         // Grass textures
         this.load.image('grass_tex_8', 'assets/Grass/ground_grass_gen_08.png');
+
+        // Ironman character (4x4 sheet, 64x64 frames)
+        this.load.spritesheet('ironman', 'assets/ironman.png', { frameWidth: 64, frameHeight: 64 });
     }
 
     create() {
+        // Clear caches
+        if (this.cache.tilemap.exists('map')) this.cache.tilemap.remove('map');
+        if (this.textures.exists('village-tiles')) this.textures.remove('village-tiles');
         // --- Generate tileset (from provided tileset source image when available) ---
         const tilesetSourceImg = this.textures.get('tileset_src')?.getSourceImage?.();
         const grassTextures = [this.textures.get('grass_tex_8')?.getSourceImage?.()].filter(Boolean);
@@ -213,6 +219,21 @@ class BootScene extends Phaser.Scene {
 
             publishCanvasTexture(destKey, createContainedCanvas(srcCanvas, bounds, outW, outH));
         };
+
+        // Ironman walk cycle (ONLY frames 4-7)
+        if (!this.anims.exists('ironman_walk')) {
+            this.anims.create({
+                key: 'ironman_walk',
+                frames: [
+                    { key: 'ironman', frame: 4 },
+                    { key: 'ironman', frame: 5 },
+                    { key: 'ironman', frame: 6 },
+                    { key: 'ironman', frame: 7 }
+                ],
+                frameRate: 6,
+                repeat: -1
+            });
+        }
 
 
         // Build the in-game house textures from the new PNGs while keeping the same

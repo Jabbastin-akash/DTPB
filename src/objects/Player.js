@@ -3,7 +3,8 @@
 
 class Player extends Phaser.Physics.Arcade.Sprite {
     constructor(scene, x, y, options = {}) {
-        const textureKey = gameState.playerGender === 'female' ? 'player_female' : 'player_male';
+        const selectedKey = options.textureKey || gameState?.playerTextureKey;
+        const textureKey = selectedKey || (gameState.playerGender === 'female' ? 'player_female' : 'player_male');
         super(scene, x, y, textureKey);
 
         this.scene = scene;
@@ -13,21 +14,34 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         this.scene.add.existing(this);
         this.scene.physics.add.existing(this);
 
+        // Pull defaults from centralized config (if present)
+        const cfg = (typeof getCharacterConfig === 'function') ? getCharacterConfig(this.spriteKey) : null;
+
         // Global visual scale for player (default: gameState.characterScale)
         const characterScale = gameState?.characterScale ?? 1;
-        const scaleToUse = (typeof options.scale === 'number') ? options.scale : characterScale;
+        const baseScale = (typeof options.scale === 'number') ? options.scale : characterScale;
+        const scaleToUse = baseScale * (cfg?.scaleMultiplier ?? 1);
         if (scaleToUse !== 1) {
             this.setScale(scaleToUse);
         }
 
-        // Adjust hitbox to just cover the legs for top-down feel
-        // Works for any frame size (32/48/64...) as long as origin is centered.
-        const bodyW = 16;
-        const bodyH = 12;
-        const frameW = this.displayWidth || this.width || 32;
-        const frameH = this.displayHeight || this.height || 32;
+        // Adjust hitbox to just cover the legs for top-down feel.
+        // Allow per-sprite tuning because imported sheets can have different padding.
+        const hitbox = options.hitbox || cfg?.hitbox || (this.spriteKey === 'player_male'
+            ? { w: 18, h: 14, offsetYFromBottom: 1 }
+            : { w: 16, h: 12, offsetYFromBottom: 1 });
+
+        const bodyW = hitbox.w;
+        const bodyH = hitbox.h;
+        // Use unscaled frame size for offsets so scaling doesn't skew the body placement.
+        const frameW = (this.frame?.realWidth ?? this.width ?? 32);
+        const frameH = (this.frame?.realHeight ?? this.height ?? 32);
+
         this.body.setSize(bodyW, bodyH);
-        this.body.setOffset(Math.floor((frameW - bodyW) / 2), Math.floor(frameH - bodyH));
+        this.body.setOffset(
+            Math.floor((frameW - bodyW) / 2),
+            Math.floor(frameH - bodyH - (hitbox.offsetYFromBottom ?? 0))
+        );
         this.body.setCollideWorldBounds(true);
 
         // Movement keys
@@ -40,8 +54,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
             space: Phaser.Input.Keyboard.KeyCodes.SPACE,
             e: Phaser.Input.Keyboard.KeyCodes.E
         });
-
-        this.speed = 220;
+        this.speed = options.speed ?? (cfg?.speed ?? 220);
         this.facing = 'down';
         
         // Interact key debounce
@@ -61,35 +74,50 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         let isMoving = false;
 
         // X movement
+        let vx = 0;
         if (this.cursors.left.isDown || this.keys.a.isDown) {
-            this.body.setVelocityX(-this.speed);
+            vx = -this.speed;
             this.facing = 'left';
             isMoving = true;
         } else if (this.cursors.right.isDown || this.keys.d.isDown) {
-            this.body.setVelocityX(this.speed);
+            vx = this.speed;
             this.facing = 'right';
             isMoving = true;
         }
 
         // Y movement
+        let vy = 0;
         if (this.cursors.up.isDown || this.keys.w.isDown) {
-            this.body.setVelocityY(-this.speed);
+            vy = -this.speed;
             if (!isMoving) this.facing = 'up'; // Prefer Y face if pure Y
             isMoving = true;
         } else if (this.cursors.down.isDown || this.keys.s.isDown) {
-            this.body.setVelocityY(this.speed);
+            vy = this.speed;
             if (!isMoving) this.facing = 'down';
             isMoving = true;
         }
 
         // Normalize speed for diagonals
-        this.body.velocity.normalize().scale(this.speed);
+        if (vx !== 0 && vy !== 0) {
+            vx *= 0.7071;
+            vy *= 0.7071;
+        }
+        this.body.setVelocity(vx, vy);
 
         // Play anims
         if (isMoving) {
-            this.anims.play(`${this.spriteKey}_${this.facing}`, true);
+            if (this.spriteKey === 'ironman') {
+                this.anims.play('ironman_walk', true);
+            } else {
+                this.anims.play(`_`, true);
+            }
         } else {
-            this.anims.play(`${this.spriteKey}_idle_${this.facing}`, true);
+            if (this.spriteKey === 'ironman') {
+                this.anims.stop();
+                this.setFrame(4);
+            } else {
+                this.anims.play(`_idle_`, true);
+            }
         }
 
         // Interaction processing
