@@ -106,13 +106,13 @@ class Player extends Phaser.Physics.Arcade.Sprite {
 
         // Play anims
         if (isMoving) {
-            if (this.spriteKey === 'ironman') {
+            if (this.texture.key === 'ironman') {
                 this.anims.play('ironman_walk', true);
             } else {
                 this.anims.play(`_`, true);
             }
         } else {
-            if (this.spriteKey === 'ironman') {
+            if (this.texture.key === 'ironman') {
                 this.anims.stop();
                 this.setFrame(5);
             } else {
