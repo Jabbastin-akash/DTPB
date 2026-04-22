@@ -103,6 +103,16 @@ class Player extends Phaser.Physics.Arcade.Sprite {
             vy *= 0.7071;
         }
         this.body.setVelocity(vx, vy);
+        // Ironman: fake direction cues (no directional frames available)
+        if (this.texture.key === 'ironman') {
+            if (vx < 0) this.setFlipX(true);
+            else if (vx > 0) this.setFlipX(false);
+
+            // Slight tint when moving up, clear when moving down
+            if (vy < 0) this.setTint(0xccccff);
+            else if (vy > 0) this.clearTint();
+        }
+
 
         // Play anims
         if (isMoving) {
