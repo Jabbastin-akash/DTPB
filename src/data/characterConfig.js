@@ -15,7 +15,7 @@ const CHARACTER_CONFIG = {
 
     // Example future character
     ironman: {
-        scaleMultiplier: 0.12,
+        scaleMultiplier: 0.5,
         speed: 220,
         hitbox: { w: 16, h: 12, offsetYFromBottom: 1 }
     }
