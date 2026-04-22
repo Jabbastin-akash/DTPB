@@ -103,14 +103,25 @@ class Player extends Phaser.Physics.Arcade.Sprite {
             vy *= 0.7071;
         }
         this.body.setVelocity(vx, vy);
-        // Ironman: fake direction cues (no directional frames available)
-        if (this.texture.key === 'ironman') {
-            if (vx < 0) this.setFlipX(true);
-            else if (vx > 0) this.setFlipX(false);
 
-            // Slight tint when moving up, clear when moving down
-            if (vy < 0) this.setTint(0xccccff);
-            else if (vy > 0) this.clearTint();
+        // Normalize facing based on dominant axis to reduce jitter
+        let direction = this.facing;
+        if (Math.abs(vx) > Math.abs(vy)) {
+            direction = vx > 0 ? 'right' : (vx < 0 ? 'left' : direction);
+        } else if (Math.abs(vy) > 0) {
+            direction = vy > 0 ? 'down' : 'up';
+        }
+        this.facing = direction;        // Ironman: fake direction cues (no directional frames available)
+        if (this.texture.key === 'ironman') {
+            // horizontal
+            this.setFlipX(this.facing === 'left');
+
+            // vertical feedback
+            if (this.facing === 'up') {
+                this.setTint(0xccccff);
+            } else {
+                this.clearTint();
+            }
         }
 
 
@@ -119,14 +130,14 @@ class Player extends Phaser.Physics.Arcade.Sprite {
             if (this.texture.key === 'ironman') {
                 this.anims.play('ironman_walk', true);
             } else {
-                this.anims.play(`_`, true);
+                this.anims.play(`${this.spriteKey}_${this.facing}`, true);
             }
         } else {
             if (this.texture.key === 'ironman') {
                 this.anims.stop();
                 this.setFrame(5);
             } else {
-                this.anims.play(`_idle_`, true);
+                this.anims.play(`${this.spriteKey}_idle_${this.facing}`, true);
             }
         }
 
