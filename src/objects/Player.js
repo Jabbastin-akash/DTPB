@@ -114,7 +114,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         } else {
             if (this.spriteKey === 'ironman') {
                 this.anims.stop();
-                this.setFrame(4);
+                this.setFrame(5);
             } else {
                 this.anims.play(`_idle_`, true);
             }

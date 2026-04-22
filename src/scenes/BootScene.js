@@ -121,7 +121,7 @@ class BootScene extends Phaser.Scene {
         this.load.image('grass_tex_8', 'assets/Grass/ground_grass_gen_08.png');
 
         // Ironman character (4x4 sheet, 64x64 frames)
-        this.load.spritesheet('ironman', "assets/NPC's/ironman.png", { frameWidth: 64, frameHeight: 64 });
+        this.load.spritesheet('ironman', "assets/NPC's/ironman.png/sprite-sheet-4x4.png", { frameWidth: 512, frameHeight: 512 });
     }
 
     create() {

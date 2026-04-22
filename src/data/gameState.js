@@ -7,6 +7,10 @@ const gameState = {
     upgradesPurchased: [],      // e.g. ['flowers', 'bench', ...]
     playerGender: 'male',       // Set by CharSelectScene
 
+    // Optional explicit player texture key (e.g. 'ironman').
+    // If set, it overrides playerGender-based selection.
+    playerTextureKey: null,
+
     // Global visual scale for character sprites (Player + NPCs + conversation scenes)
     // Increase this to make characters appear larger across the game.
     characterScale: 1.5,
