@@ -121,7 +121,15 @@ class BootScene extends Phaser.Scene {
         this.load.image('grass_tex_8', 'assets/Grass/ground_grass_gen_08.png');
 
         // Ironman character (4x4 sheet, 64x64 frames)
-        this.load.spritesheet('ironman', "assets/NPC's/ironman.png/sprite-sheet-4x4-removebg-preview.png", { frameWidth: 125, frameHeight: 125 });
+        // Ironman character (4x4 sheet)
+        // sprite-sheet-4x4-transparent.png is 2048x2048 => 512x512 per frame
+        // sprite-sheet-4x4-removebg-preview.png is 500x500 => 125x125 per frame
+        // Use the transparent sheet by default for clean indexing + consistent frame sizing.
+        this.load.spritesheet(
+            'ironman',
+            "assets/NPC's/ironman.png/sprite-sheet-4x4-transparent.png",
+            { frameWidth: 512, frameHeight: 512 }
+        );
     }
 
     create() {
@@ -555,7 +563,7 @@ class BootScene extends Phaser.Scene {
                         this.anims.create({
                             key: `${key}_${dirs[d]}`,
                             frames: this.anims.generateFrameNumbers(key, { start: walkStart, end: walkEnd }),
-                            frameRate: 10,
+                            frameRate: 8,
                             repeat: -1
                         });
                     }

@@ -59,6 +59,9 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
         this.pulseRing = null;
         this.pulseTween = null;
         this.pulseState = null;
+
+        // Track missing animations so we only warn once per key
+        this._missingAnimWarned = new Set();
     }
 
     setPatrol(pathNodes) {
@@ -82,6 +85,20 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
         this.patrolPath = [this.targetNode]; // pass the > 0 check
     }
 
+    _playAnimSafe(animKey, loop = true) {
+        if (this.anims && this.anims.exists(animKey)) {
+            this.anims.play(animKey, loop);
+            return true;
+        }
+        if (this._missingAnimWarned && !this._missingAnimWarned.has(animKey)) {
+            this._missingAnimWarned.add(animKey);
+            console.warn('Missing:', animKey);
+        }
+        if (this.anims) this.anims.stop();
+        return false;
+    }
+
+
     update(time, delta) {
         // Keep marker above head always
         if (this.marker) {
@@ -97,7 +114,7 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
 
         if (this.isInteracting) {
             this.body.setVelocity(0);
-            this.anims.play(`${this.spriteKey}_idle_${this.facing}`, true);
+            this._playAnimSafe(`${this.spriteKey}_idle_${this.facing}`, true);
             return;
         }
 
@@ -106,7 +123,7 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
             this.moveToTarget();
         } else {
             this.body.setVelocity(0);
-            this.anims.play(`${this.spriteKey}_idle_${this.facing}`, true);
+            this._playAnimSafe(`${this.spriteKey}_idle_${this.facing}`, true);
         }
 
         // Proximity check with player
@@ -155,7 +172,7 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
                 this.targetNode = this.patrolPath[this.currentPatrolIndex];
                 this.patrolWaitTime = this.scene.time.now + 900; // shorter pause for snappier patrols
             }
-            this.anims.play(`${this.spriteKey}_idle_${this.facing}`, true);
+            this._playAnimSafe(`${this.spriteKey}_idle_${this.facing}`, true);
         } else {
             // Move toward node
             if (Math.abs(dx) > Math.abs(dy)) {
@@ -167,7 +184,7 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
                 this.body.setVelocityY(dy > 0 ? this.speed : -this.speed);
                 this.facing = dy > 0 ? 'down' : 'up';
             }
-            this.anims.play(`${this.spriteKey}_${this.facing}`, true);
+            this._playAnimSafe(`${this.spriteKey}_${this.facing}`, true);
         }
     }
 
@@ -224,7 +241,7 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
         } else {
             this.facing = dy > 0 ? 'down' : 'up';
         }
-        this.anims.play(`${this.spriteKey}_idle_${this.facing}`);
+        this._playAnimSafe(`${this.spriteKey}_idle_${this.facing}`, true);
         
         this.isInteracting = true;
         this.marker.setVisible(false);
@@ -333,6 +350,9 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
                 this.pulseTween = null;
             }
             this.pulseState = null;
+
+        // Track missing animations so we only warn once per key
+        this._missingAnimWarned = new Set();
             return;
         }
 
@@ -362,6 +382,9 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
             this.pulseTween = null;
         }
         this.pulseState = null;
+
+        // Track missing animations so we only warn once per key
+        this._missingAnimWarned = new Set();
 
         if (this.markerTween) {
             this.markerTween.stop();

@@ -1,3 +1,4 @@
+// filepath: /Users/user/DTPB/src/objects/Player.js
 // ===== Player.js =====
 // Main character logic with WASD + arrow controls and collision
 
@@ -9,7 +10,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
 
         this.scene = scene;
         this.spriteKey = textureKey;
-        
+
         // Add to scene and physics
         this.scene.add.existing(this);
         this.scene.physics.add.existing(this);
@@ -54,55 +55,72 @@ class Player extends Phaser.Physics.Arcade.Sprite {
             space: Phaser.Input.Keyboard.KeyCodes.SPACE,
             e: Phaser.Input.Keyboard.KeyCodes.E
         });
+
         this.speed = options.speed ?? (cfg?.speed ?? 220);
         this.facing = 'down';
-        
+
+        // Fly mode (Ironman)
+        // SPACE is already bound in this.keys for interaction; we keep a dedicated Key object for toggling.
+        this.flyKey = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        this.isFlying = false;
+        this.baseY = null;
+
+        // Debug (temporary): throttle facing logs
+        this._lastFacingLogAt = 0;
+
         // Interact key debounce
         this.lastInteract = 0;
     }
 
     update() {
-        // Stop moving by default
-        this.body.setVelocity(0);
+        // Toggle fly mode (Ironman only)
+        if (this.texture.key === 'ironman' && Phaser.Input.Keyboard.JustDown(this.flyKey)) {
+            this.isFlying = !this.isFlying;
+        }
 
         // Don't move if UI is active (movement locked by scene)
         if (this.scene.movementEnabled === false) {
+            // Keep hover stable while paused
+            if (this.texture.key === 'ironman' && this.isFlying && typeof this.baseY === 'number') {
+                this.setY(this.baseY + Math.sin(this.scene.time.now / 200) * 2);
+                this.setDepth(100);
+            }
             this.anims.play(`${this.spriteKey}_idle_${this.facing}`, true);
             return;
         }
 
         let isMoving = false;
 
-        // X movement
+        // X movement (direction vector)
         let vx = 0;
         if (this.cursors.left.isDown || this.keys.a.isDown) {
-            vx = -this.speed;
+            vx = -1;
             this.facing = 'left';
             isMoving = true;
         } else if (this.cursors.right.isDown || this.keys.d.isDown) {
-            vx = this.speed;
+            vx = 1;
             this.facing = 'right';
             isMoving = true;
         }
 
-        // Y movement
+        // Y movement (direction vector)
         let vy = 0;
         if (this.cursors.up.isDown || this.keys.w.isDown) {
-            vy = -this.speed;
-            if (!isMoving) this.facing = 'up'; // Prefer Y face if pure Y
+            vy = -1;
+            if (!isMoving) this.facing = 'up';
             isMoving = true;
         } else if (this.cursors.down.isDown || this.keys.s.isDown) {
-            vy = this.speed;
+            vy = 1;
             if (!isMoving) this.facing = 'down';
             isMoving = true;
         }
 
-        // Normalize speed for diagonals
-        if (vx !== 0 && vy !== 0) {
-            vx *= 0.7071;
-            vy *= 0.7071;
+        // Proper normalization (so diagonals are not faster)
+        const len = Math.hypot(vx, vy);
+        if (len > 0) {
+            vx /= len;
+            vy /= len;
         }
-        this.body.setVelocity(vx, vy);
 
         // Normalize facing based on dominant axis to reduce jitter
         let direction = this.facing;
@@ -111,31 +129,82 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         } else if (Math.abs(vy) > 0) {
             direction = vy > 0 ? 'down' : 'up';
         }
-        this.facing = direction;        // Ironman: fake direction cues (no directional frames available)
-        if (this.texture.key === 'ironman') {
-            // horizontal
-            this.setFlipX(this.facing === 'left');
+        this.facing = direction;
 
-            // vertical feedback
-            if (this.facing === 'up') {
-                this.setTint(0xccccff);
+        // Debug: confirm direction mapping while moving
+        if (this.texture.key === 'ironman' && isMoving) {
+            const now = this.scene.time.now;
+            if (now > this._lastFacingLogAt + 250) {
+                this._lastFacingLogAt = now;
+                console.log('Facing:', this.facing);
+            }
+        }
+
+        // Update baseY continuously when NOT flying so hover follows movement
+        if (!(this.texture.key === 'ironman' && this.isFlying)) {
+            this.baseY = this.y;
+        }
+
+        // Unify walking/flying movement: ensure we reset drag when not flying
+        if (this.texture.key === 'ironman' && this.isFlying) {
+            this.body.setAllowGravity(false);
+            this.body.setDrag(300, 300);
+            this.body.setMaxVelocity(220, 220);
+
+            // Acceleration (smooth start/stop driven by drag)
+            this.body.setAcceleration(vx * 600, vy * 600);
+        } else {
+            this.body.setAllowGravity(true);
+            this.body.setMaxVelocity(10000, 10000);
+            this.body.setAcceleration(0, 0);
+            this.body.setDrag(0, 0);
+
+            const walkSpeed = (this.texture.key === 'ironman') ? 150 : this.speed;
+            this.body.setVelocity(vx * walkSpeed, vy * walkSpeed);
+        }
+
+        // Fly visuals + hover (Ironman only)
+        if (this.texture.key === 'ironman') {
+            if (this.isFlying) {
+                this.setAngle(vy < 0 ? -5 : (vy > 0 ? 5 : 0));
+                this.setTintFill(0x99ccff);
+
+                if (typeof this.baseY !== 'number') {
+                    this.baseY = this.y;
+                }
+                this.setY(this.baseY + Math.sin(this.scene.time.now / 200) * 2);
             } else {
+                this.setAngle(0);
+                this.baseY = null;
                 this.clearTint();
             }
         }
 
+        // Depth: walking uses integer Y-sort, flying is always above
+        if (this.texture.key === 'ironman' && this.isFlying) {
+            this.setDepth(100);
+        } else {
+            this.setDepth(Math.floor(this.y));
+        }
 
         // Play anims
         if (isMoving) {
             if (this.texture.key === 'ironman') {
-                this.anims.play('ironman_walk', true);
+                this.anims.play(`ironman_${this.facing}`, true);
             } else {
                 this.anims.play(`${this.spriteKey}_${this.facing}`, true);
             }
         } else {
             if (this.texture.key === 'ironman') {
                 this.anims.stop();
-                this.setFrame(5);
+
+                const idleMap = {
+                    down: 0,
+                    left: 4,
+                    right: 8,
+                    up: 12
+                };
+                this.setFrame(idleMap[this.facing] ?? 0);
             } else {
                 this.anims.play(`${this.spriteKey}_idle_${this.facing}`, true);
             }
@@ -147,8 +216,5 @@ class Player extends Phaser.Physics.Arcade.Sprite {
             this.lastInteract = time;
             this.scene.events.emit('player:interact', this);
         }
-
-        // Depth sort based on Y
-        this.setDepth(this.y + (this.displayHeight || this.height));
     }
 }
