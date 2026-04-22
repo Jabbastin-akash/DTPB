@@ -143,6 +143,7 @@ class GameScene extends Phaser.Scene {
 
         // Camera setup
         this.cameras.main.startFollow(this.player, true, 0.05, 0.05);
+        this.cameras.main.setZoom(2);
         this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
 
         // --- NPC Setup ---
