@@ -29,7 +29,6 @@ class CharSelectScene extends Phaser.Scene {
 
         // Background
         const bg = this.add.rectangle(0, 0, 200, 260, 0x333333).setInteractive();
-        const border = this.add.rectangle(0, 0, 204, 264, Phaser.Display.Color.HexStringToColor(color).color).setDepth(-1);
 
         // Sprite preview (scaled up)
         const preview = this.add.sprite(0, -30, spriteKey, 0);
@@ -44,18 +43,7 @@ class CharSelectScene extends Phaser.Scene {
             fontFamily: 'sans-serif', fontSize: '24px', color: '#ffffff', fontStyle: 'bold'
         }).setOrigin(0.5);
 
-        container.add([border, bg, preview, txt].filter(Boolean));
-
-        // Hover effects
-        bg.on('pointerover', () => {
-            bg.setFillStyle(0x444444);
-            preview.play(`${spriteKey}_down`);
-        });
-        bg.on('pointerout', () => {
-            bg.setFillStyle(0x333333);
-            preview.stop();
-            preview.setFrame(0);
-        });
+        container.add([bg, preview, txt].filter(Boolean));
 
         return bg; // Return the interactive element
     }

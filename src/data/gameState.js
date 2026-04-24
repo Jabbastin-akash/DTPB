@@ -17,8 +17,8 @@ const gameState = {
     playerWorldScaleMultiplier: 0.9,
 
     // House sprite scale ONLY for the main world/website (GameScene).
-    // Example: 1.1 makes all houses ~10% larger in the overworld.
-    houseScale: 1.1,
+    // Example: 1.35 makes all houses ~35% larger in the overworld.
+    houseScale: 2.0,
 
     // Separate NPC scale (villagers, task NPCs, teacher/friend sprites).
     // If undefined/null, NPCs fall back to characterScale.

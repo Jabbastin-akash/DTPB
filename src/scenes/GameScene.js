@@ -13,7 +13,8 @@ class GameScene extends Phaser.Scene {
         // --- Map & Layers ---
         this.map = this.make.tilemap({ key: 'map' });
         const map = this.map;
-        const tileset = this.map.addTilesetImage('village-tiles', 'village-tiles');
+        const tsMeta = this.registry.get('tilesetMeta') || { margin: 0, spacing: 0 };
+        const tileset = this.map.addTilesetImage('village-tiles', 'village-tiles', 32, 32, tsMeta.margin, tsMeta.spacing);
 
         this.groundLayer = this.map.createLayer('Ground', tileset, 0, 0);
         this.wallsLayer = this.map.createLayer('Walls', tileset, 0, 0);
@@ -39,10 +40,17 @@ class GameScene extends Phaser.Scene {
             const img = this.add.sprite(obj.x, obj.y, obj.key).setOrigin(0, 0);
 
             const isHouse = typeof obj.key === 'string' && obj.key.startsWith('house');
-            const scaleFactor = (isHouse && houseScale !== 1) ? houseScale : 1;
-
+            
             const baseW = obj.width || img.width || 32;
             const baseH = obj.height || img.height || 32;
+
+            let scaleFactor = 1;
+            if (isHouse && houseScale !== 1) {
+                // Normalize all houses so they are exactly the same physical width on screen
+                const targetWidth = 160 * houseScale;
+                scaleFactor = targetWidth / baseW;
+            }
+
             const drawW = Math.max(1, Math.round(baseW * scaleFactor));
             const drawH = Math.max(1, Math.round(baseH * scaleFactor));
 
@@ -68,7 +76,7 @@ class GameScene extends Phaser.Scene {
                     };
 
                 // Draw a physics body
-                const dummy = this.add.zone(obj.x + b.x + b.w / 2, obj.y + b.y + b.h / 2, b.w, b.h);
+                const dummy = this.add.rectangle(obj.x + b.x + b.w / 2, obj.y + b.y + b.h / 2, b.w, b.h, 0x000000, 0);
                 this.physics.add.existing(dummy, true); // static body
                 this.staticObjects.add(dummy);
             }
@@ -113,6 +121,7 @@ class GameScene extends Phaser.Scene {
         this.physics.add.collider(this.player, this.wallsLayer);
         this.physics.add.collider(this.player, this.objectsLayer);
         this.physics.add.collider(this.player, this.staticObjects);
+        // We will add player collision with waterBlockers later in the file after they are created
 
         this.createShopZone();
 
@@ -130,13 +139,43 @@ class GameScene extends Phaser.Scene {
         };
         this.input.keyboard.on('keydown-C', this._onDebugOpenClassroom);
 
-        // Camera setup
+        // Camera setup — roundPixels eliminates tile seam gaps caused by sub-pixel scrolling
+        this.cameras.main.setRoundPixels(true);
         this.cameras.main.startFollow(this.player, true, 0.05, 0.05);
         this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
 
         // --- NPC Setup ---
         this.npcs = this.physics.add.group({ classType: NPC, runChildUpdate: true });
         
+        // Add invisible blockers for rivers with gaps for the bridges at x=40 and x=65
+        this.waterBlockers = this.physics.add.staticGroup();
+        
+        const createRiverZones = (riverY) => {
+            // Zone 1: Left of first bridge
+            const z1 = this.add.rectangle(0, riverY, 1280, 126, 0x000000, 0).setOrigin(0, 0);
+            this.physics.add.existing(z1, true);
+            this.waterBlockers.add(z1);
+
+            // Zone 2: Between the two bridges
+            const z2 = this.add.rectangle(1376, riverY, 704, 126, 0x000000, 0).setOrigin(0, 0);
+            this.physics.add.existing(z2, true);
+            this.waterBlockers.add(z2);
+
+            // Zone 3: Right of second bridge
+            const z3 = this.add.rectangle(2176, riverY, map.widthInPixels - 2176, 126, 0x000000, 0).setOrigin(0, 0);
+            this.physics.add.existing(z3, true);
+            this.waterBlockers.add(z3);
+        };
+
+        // Top river (y = 10 * 32 - 15 = 305)
+        createRiverZones(305);
+        // Bottom river (y = 50 * 32 - 15 = 1585)
+        createRiverZones(1585);
+        
+        this.physics.add.collider(this.npcs, this.waterBlockers);
+
+        this.physics.add.collider(this.player, this.waterBlockers);
+
         const npcObjects = map.getObjectLayer('NPCs')?.objects ?? [];
         npcObjects.forEach(obj => {
             const props = obj.properties || [];
@@ -322,12 +361,12 @@ class GameScene extends Phaser.Scene {
         });
 
         // On-screen prompt for the active zone
-        this.zonePromptText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height - 34, '', {
+        this.zonePromptText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height - 50, '', {
             fontFamily: '"Press Start 2P"',
-            fontSize: '12px',
+            fontSize: '24px',
             color: '#ffffff',
             stroke: '#000000',
-            strokeThickness: 4
+            strokeThickness: 6
         }).setOrigin(0.5, 0.5);
         this.zonePromptText.setScrollFactor(0).setDepth(110).setVisible(false);
     }
@@ -541,7 +580,7 @@ class GameScene extends Phaser.Scene {
 
     createUserNPC(spriteKey) {
         const spawnX = 10 * 32;
-        const spawnY = 10 * 32;
+        const spawnY = 16 * 32;
         const userNpc = new NPC(this, spawnX, spawnY, spriteKey, 'user_npc');
         userNpc.setRandomPatrol(10, 10, 4);
         this.npcs.add(userNpc);
@@ -551,8 +590,8 @@ class GameScene extends Phaser.Scene {
     createShopZone() {
         // Place new explicit assets to enhance the map
         const extraSprites = [];
-        if (this.textures.exists('bull') && this.anims.exists('bull_anim')) {
-            extraSprites.push({ key: 'bull', x: 5 * 32, y: 12 * 32, scale: 0.8, anim: 'bull_anim', minSpeed: 18, maxSpeed: 38 });
+        if (this.textures.exists('cow_idle_0') && this.anims.exists('cow_walk')) {
+            extraSprites.push({ key: 'cow_idle_0', x: 5 * 32, y: 16 * 32, scale: 1, anim: 'cow_walk', minSpeed: 18, maxSpeed: 38 });
         }
 
         extraSprites.forEach(obj => {
@@ -574,6 +613,9 @@ class GameScene extends Phaser.Scene {
             this.physics.add.collider(this.player, sprite);
             this.physics.add.collider(sprite, this.wallsLayer);
             this.physics.add.collider(sprite, this.objectsLayer);
+            if (this.waterBlockers) {
+                this.physics.add.collider(sprite, this.waterBlockers);
+            }
             sprite.play(obj.anim);
 
             this.registerRoamer(sprite, { minSpeed: obj.minSpeed, maxSpeed: obj.maxSpeed });

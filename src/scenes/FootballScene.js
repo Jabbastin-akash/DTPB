@@ -53,15 +53,6 @@ class FootballScene extends Phaser.Scene {
         this.ball.setMaxVelocity(470, 470);
         this.ball.setDepth(this.ball.y + 20);
 
-        this.ballShadow = this.add.ellipse(
-            this.ball.x,
-            this.ball.y + Math.floor(ballDisplaySize * 0.36),
-            Math.floor(ballDisplaySize * 0.8),
-            Math.floor(ballDisplaySize * 0.28),
-            0x000000,
-            0.28
-        ).setDepth(this.ball.y + 10);
-
         this.physics.add.collider(this.player, this.ball);
 
         this._onKickKeyDown = (event) => {
@@ -284,13 +275,6 @@ class FootballScene extends Phaser.Scene {
 
         if (this.ball) {
             this.ball.setDepth(this.ball.y + 20);
-            if (this.ballShadow) {
-                const speed = this.ball.body?.speed || 0;
-                const shadowScale = Phaser.Math.Clamp(1 - speed / 900, 0.72, 1);
-                this.ballShadow.setPosition(this.ball.x, this.ball.y + Math.floor(this.ball.displayHeight * 0.36));
-                this.ballShadow.setScale(shadowScale, shadowScale);
-                this.ballShadow.setDepth(this.ball.y + 10);
-            }
         }
     }
 

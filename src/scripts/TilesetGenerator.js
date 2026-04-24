@@ -111,20 +111,22 @@ function drawGrass(ctx, ox, oy, variant) {
     }
 }
 
-function drawPath(ctx, ox, oy, variant) {
+function drawPath(ctx, ox, oy, variant, pathTexture = null) {
     fillRect(ctx, ox, oy, 32, 32, PAL.path1);
-    const rng = mulberry32(variant * 73 + 19);
-    for (let i = 0; i < 12; i++) {
-        const x = Math.floor(rng() * 28), y = Math.floor(rng() * 28);
-        fillRect(ctx, ox + x, oy + y, Math.floor(rng() * 4) + 2, Math.floor(rng() * 3) + 2, rng() > 0.5 ? PAL.path2 : PAL.path3);
+    if (!pathTexture) {
+        const rng = mulberry32(variant * 73 + 19);
+        for (let i = 0; i < 12; i++) {
+            const x = Math.floor(rng() * 28), y = Math.floor(rng() * 28);
+            fillRect(ctx, ox + x, oy + y, Math.floor(rng() * 4) + 2, Math.floor(rng() * 3) + 2, rng() > 0.5 ? PAL.path2 : PAL.path3);
+        }
+    }
+    if (pathTexture) {
+        ctx.drawImage(pathTexture, 0, 0, pathTexture.width, pathTexture.height, ox, oy, TILE_SIZE, TILE_SIZE);
     }
 }
 
 function drawPathEdge(ctx, ox, oy, edge, pathTexture = null) {
-    drawPath(ctx, ox, oy, 99);
-    if (pathTexture) {
-        ctx.drawImage(pathTexture, 0, 0, pathTexture.width, pathTexture.height, ox, oy, TILE_SIZE, TILE_SIZE);
-    }
+    drawPath(ctx, ox, oy, 99, pathTexture);
     ctx.fillStyle = PAL.pathKerb;
     if (edge === 't') fillRect(ctx, ox, oy, 32, 3, PAL.pathKerb);
     else if (edge === 'b') fillRect(ctx, ox, oy + 29, 32, 3, PAL.pathKerb);
@@ -398,7 +400,7 @@ function drawWater(ctx, ox, oy) {
     for (let y = 0; y < 32; y += 4) {
         for (let x = 0; x < 32; x += 4) {
             const offset = Math.sin(x * 0.3 + y * 0.2) * 2;
-            fillRect(ctx, ox + x, oy + y + Math.floor(offset), 4, 2, offset > 0 ? PAL.water3 : PAL.water1);
+    fillRect(ctx, ox + x, oy + y + Math.floor(offset), 4, 2, offset > 0 ? PAL.water3 : PAL.water1);
         }
     }
 }
@@ -408,10 +410,12 @@ function generateTilesetImage(sourceTilesetImg, grassTextures, pathTexture) {
     const COLS = 8;
     const tileCount = Object.keys(TID).length - 1; 
     const ROWS = Math.ceil(tileCount / COLS);
-    const canvas = document.createElement('canvas');
-    canvas.width = COLS * TILE_SIZE;
-    canvas.height = ROWS * TILE_SIZE;
-    const ctx = canvas.getContext('2d');
+
+    // --- Step 1: Draw all tiles onto a compact (no-padding) staging canvas ---
+    const stageCanvas = document.createElement('canvas');
+    stageCanvas.width = COLS * TILE_SIZE;
+    stageCanvas.height = ROWS * TILE_SIZE;
+    const ctx = stageCanvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
 
     function tilePos(id) {
@@ -422,12 +426,9 @@ function generateTilesetImage(sourceTilesetImg, grassTextures, pathTexture) {
 
     const draw = (id, fn) => { if (!id) return; const p = tilePos(id); fn(ctx, p.x, p.y); };
 
-    // Use new grass textures for grass tiles
     draw(TID.GRASS, (c, x, y) => drawGrassFromTexture(c, x, y, grassTextures, 1));
     draw(TID.GRASS2, (c, x, y) => drawGrassFromTexture(c, x, y, grassTextures, 2));
 
-    // If a source tileset image is provided, use it for a few core tiles.
-    // The expected layout is a 3x2 grid (e.g., 576x384 => 192px cells).
     const canUseSource = !!(sourceTilesetImg && sourceTilesetImg.width >= 96 && sourceTilesetImg.height >= 64);
     const cellW = canUseSource ? Math.floor(sourceTilesetImg.width / 3) : 0;
     const cellH = canUseSource ? Math.floor(sourceTilesetImg.height / 2) : 0;
@@ -440,10 +441,7 @@ function generateTilesetImage(sourceTilesetImg, grassTextures, pathTexture) {
     }
 
     const drawPathFromImage = (c, x, y, img, variant) => {
-        drawPath(c, x, y, variant);
-        if (img) {
-            c.drawImage(img, 0, 0, img.width, img.height, x, y, TILE_SIZE, TILE_SIZE);
-        }
+        drawPath(c, x, y, variant, img || null);
     };
 
     draw(TID.PATH, (c, x, y) => drawPathFromImage(c, x, y, pathTexture, 0));
@@ -468,7 +466,6 @@ function generateTilesetImage(sourceTilesetImg, grassTextures, pathTexture) {
     draw(TID.LAMP_OFF, (c, x, y) => drawLamp(c, x, y, false, grassTextures));
 
     draw(TID.MURAL, drawMural);
-    // GRASS2/PATH2/SOIL may have already been sourced above.
 
     draw(TID.HOUSE1_ROOF, (c, x, y) => drawHouseRoof(c, x, y, '#c0392b', '#e74c3c', 'chimney', grassTextures));
     draw(TID.HOUSE1_FACADE, (c, x, y) => drawHouseFacade(c, x, y, 'welcomemat', grassTextures));
@@ -496,11 +493,45 @@ function generateTilesetImage(sourceTilesetImg, grassTextures, pathTexture) {
     draw(TID.COBBLESTONE, drawCobblestone);
     draw(TID.SHOP_SIGN, (c, x, y) => drawShopSign(c, x, y, grassTextures));
 
-    return { canvas, cols: COLS, rows: ROWS, tileCount };
+    // --- Step 2: Extrude tiles to eliminate seam gaps ---
+    const EXTRUDE = 2;
+    const SPACING = EXTRUDE * 2;
+    const MARGIN = EXTRUDE;
+
+    const extCanvas = document.createElement('canvas');
+    extCanvas.width = MARGIN * 2 + COLS * TILE_SIZE + (COLS - 1) * SPACING;
+    extCanvas.height = MARGIN * 2 + ROWS * TILE_SIZE + (ROWS - 1) * SPACING;
+    const ectx = extCanvas.getContext('2d');
+    ectx.imageSmoothingEnabled = false;
+
+    for (let row = 0; row < ROWS; row++) {
+        for (let col = 0; col < COLS; col++) {
+            const srcX = col * TILE_SIZE;
+            const srcY = row * TILE_SIZE;
+            const dstX = MARGIN + col * (TILE_SIZE + SPACING);
+            const dstY = MARGIN + row * (TILE_SIZE + SPACING);
+
+            ectx.drawImage(stageCanvas, srcX, srcY, TILE_SIZE, TILE_SIZE, dstX, dstY, TILE_SIZE, TILE_SIZE);
+
+            ectx.drawImage(stageCanvas, srcX, srcY, TILE_SIZE, 1, dstX, dstY - EXTRUDE, TILE_SIZE, EXTRUDE);
+            ectx.drawImage(stageCanvas, srcX, srcY + TILE_SIZE - 1, TILE_SIZE, 1, dstX, dstY + TILE_SIZE, TILE_SIZE, EXTRUDE);
+            ectx.drawImage(stageCanvas, srcX, srcY, 1, TILE_SIZE, dstX - EXTRUDE, dstY, EXTRUDE, TILE_SIZE);
+            ectx.drawImage(stageCanvas, srcX + TILE_SIZE - 1, srcY, 1, TILE_SIZE, dstX + TILE_SIZE, dstY, EXTRUDE, TILE_SIZE);
+
+            ectx.drawImage(stageCanvas, srcX, srcY, 1, 1, dstX - EXTRUDE, dstY - EXTRUDE, EXTRUDE, EXTRUDE);
+            ectx.drawImage(stageCanvas, srcX + TILE_SIZE - 1, srcY, 1, 1, dstX + TILE_SIZE, dstY - EXTRUDE, EXTRUDE, EXTRUDE);
+            ectx.drawImage(stageCanvas, srcX, srcY + TILE_SIZE - 1, 1, 1, dstX - EXTRUDE, dstY + TILE_SIZE, EXTRUDE, EXTRUDE);
+            ectx.drawImage(stageCanvas, srcX + TILE_SIZE - 1, srcY + TILE_SIZE - 1, 1, 1, dstX + TILE_SIZE, dstY + TILE_SIZE, EXTRUDE, EXTRUDE);
+        }
+    }
+
+    return { canvas: extCanvas, cols: COLS, rows: ROWS, tileCount, margin: MARGIN, spacing: SPACING };
 }
 
 // ===== GENERATE MAP JSON (Tiled format) & IMAGE OBJECTS =====
-function generateMapJSON() {
+function generateMapJSON(tilesetMargin, tilesetSpacing) {
+    const _margin = tilesetMargin || 0;
+    const _spacing = tilesetSpacing || 0;
     const G = TID.GRASS;
     const P = TID.PATH;
     const GA = TID.GATE;
@@ -526,6 +557,8 @@ function generateMapJSON() {
         setTile(x, y, P);
     }
 
+    const imageObjects = [];
+
     function paintPathH(y, x1, x2, thickness = 1) {
         const xa = Math.min(x1, x2);
         const xb = Math.max(x1, x2);
@@ -545,13 +578,25 @@ function generateMapJSON() {
     // --- EXPANDED 120x80 MAP LAYOUT ---
     
     // Main Roads
-    paintPathH(10, 0, MAP_COLS - 1, 3); // Top horizontal
+    // paintPathH(10, 0, MAP_COLS - 1, 3); // Top horizontal (REMOVED for river)
     paintPathH(30, 0, MAP_COLS - 1, 3); // Middle horizontal
-    paintPathH(50, 0, MAP_COLS - 1, 3); // Lower horizontal
-    paintPathV(15, 10, 50, 3); // Left vertical connector
-    paintPathV(40, 10, 50, 3); // Middle vertical connector
-    paintPathV(65, 10, 50, 3); // Right vertical connector
-    paintPathV(90, 10, 50, 3); // Far-right vertical connector
+    // paintPathH(50, 0, MAP_COLS - 1, 3); // Lower horizontal (REMOVED for river)
+    
+    // Vertical connectors
+    // Left and Far-right: only between the rivers
+    paintPathV(15, 14, 48, 3);
+    paintPathV(90, 14, 48, 3);
+    
+    // Middle connectors (40, 65): go all the way, with bridges at rivers
+    // Above top river:
+    paintPathV(40, 0, 8, 3);
+    paintPathV(65, 0, 8, 3);
+    // Between rivers:
+    paintPathV(40, 14, 48, 3);
+    paintPathV(65, 14, 48, 3);
+    // Below bottom river:
+    paintPathV(40, 56, 79, 3);
+    paintPathV(65, 56, 79, 3);
 
     // Beautiful park area path loop
     paintPathH(20, 20, 35, 2);
@@ -574,21 +619,72 @@ function generateMapJSON() {
         }
     }
 
-    // Generate Craftpix Image Objects
-    const imageObjects = [];
+    // Add top river segments across the map
+    for (let x = -18; x < MAP_COLS * 32; x += 370) {
+        imageObjects.push({
+            name: 'river_segment',
+            key: 'river_img',
+            x: x,
+            y: 10 * 32 - 15,
+            width: 408,
+            height: 126,
+            depth: 0.1, 
+            collidable: false // Non-collidable so player can walk over it
+        });
+    }
+
+    // Add lower river segments across the map (y=50)
+    for (let x = -18; x < MAP_COLS * 32; x += 370) {
+        imageObjects.push({
+            name: 'river_segment_lower',
+            key: 'river_img',
+            x: x,
+            y: 50 * 32 - 15,
+            width: 408,
+            height: 126,
+            depth: 0.1, 
+            collidable: false 
+        });
+    }
+
+    // Add Bridges over rivers
+    const addBridge = (tileX, riverYPixel) => {
+        const roadWidth = 3 * 32;
+        const bridgeW = 173;
+        const bridgeH = 197;
+        const roadCenterX = tileX * 32 + roadWidth / 2;
+        const riverCenterY = riverYPixel + 126 / 2;
+        imageObjects.push({
+            name: 'bridge',
+            key: 'bridge_img',
+            x: Math.round(roadCenterX - bridgeW / 2),
+            y: Math.round(riverCenterY - bridgeH / 2),
+            width: bridgeW,
+            height: bridgeH,
+            depth: 0.2, // Higher than river, lower than objects
+            collidable: false
+        });
+    };
+    
+    // Top river bridges
+    addBridge(40, 10 * 32 - 15);
+    addBridge(65, 10 * 32 - 15);
+    // Bottom river bridges
+    addBridge(40, 50 * 32 - 15);
+    addBridge(65, 50 * 32 - 15);
 
     // Imported houses from assets/Hope.png - Repositioned and more added
-    imageObjects.push({ name: 'house1', key: 'house1', x: 8*32, y: 4*32, width: 157, height: 104, customBounds: { x: 18, y: 62, w: 121, h: 34 } });
-    imageObjects.push({ name: 'house2', key: 'house2', x: 25*32, y: 4*32, width: 113, height: 103, customBounds: { x: 14, y: 62, w: 85, h: 33 } });
-    imageObjects.push({ name: 'house3', key: 'house3', x: 50*32, y: 4*32, width: 139, height: 80, customBounds: { x: 16, y: 48, w: 107, h: 24 } });
-    imageObjects.push({ name: 'house4', key: 'house4', x: 75*32, y: 4*32, width: 90, height: 109, customBounds: { x: 10, y: 67, w: 70, h: 34 } });
+    imageObjects.push({ name: 'house1', key: 'house1', x: 8*32, y: 1*32, customBounds: { x: 18, y: 62, w: 121, h: 34 } });
+    imageObjects.push({ name: 'house2', key: 'house2', x: 25*32, y: -1*32, customBounds: { x: 14, y: 62, w: 85, h: 33 } });
+    imageObjects.push({ name: 'house3', key: 'house3', x: 50*32, y: 1*32, customBounds: { x: 16, y: 48, w: 107, h: 24 } });
+    imageObjects.push({ name: 'house4', key: 'house4', x: 75*32, y: 1*32, customBounds: { x: 10, y: 67, w: 70, h: 34 } });
     imageObjects.push({ name: 'school', key: 'school_building', x: 45*32, y: 20*32, width: 127, height: 112, customBounds: { x: 14, y: 66, w: 99, h: 38 } });
     
-    imageObjects.push({ name: 'house5', key: 'house5', x: 8*32, y: 22*32, width: 157, height: 104, customBounds: { x: 18, y: 62, w: 121, h: 34 } });
-    imageObjects.push({ name: 'house6', key: 'house6', x: 25*32, y: 40*32, width: 113, height: 103, customBounds: { x: 14, y: 62, w: 85, h: 33 } });
-    imageObjects.push({ name: 'house7', key: 'house7', x: 50*32, y: 40*32, width: 139, height: 80, customBounds: { x: 16, y: 48, w: 107, h: 24 } });
-    imageObjects.push({ name: 'house8', key: 'house8', x: 75*32, y: 22*32, width: 90, height: 109, customBounds: { x: 10, y: 67, w: 70, h: 34 } });
-    imageObjects.push({ name: 'house9', key: 'house9', x: 95*32, y: 15*32, width: 127, height: 112, customBounds: { x: 14, y: 66, w: 99, h: 38 } });
+    imageObjects.push({ name: 'house5', key: 'house5', x: 8*32, y: 22*32, customBounds: { x: 18, y: 62, w: 121, h: 34 } });
+    imageObjects.push({ name: 'house6', key: 'house6', x: 25*32, y: 37*32, customBounds: { x: 14, y: 62, w: 85, h: 33 } });
+    imageObjects.push({ name: 'house7', key: 'house7', x: 50*32, y: 37*32, customBounds: { x: 16, y: 48, w: 107, h: 24 } });
+    imageObjects.push({ name: 'house8', key: 'house8', x: 75*32, y: 22*32, customBounds: { x: 10, y: 67, w: 70, h: 34 } });
+    imageObjects.push({ name: 'house9', key: 'house9', x: 95*32, y: 15*32, customBounds: { x: 14, y: 66, w: 99, h: 38 } });
 
     // Park location artwork provided by user.
     imageObjects.push({
@@ -609,13 +705,12 @@ function generateMapJSON() {
     imageObjects.push({
         name: 'pond',
         key: 'pond',
-        anim: 'pond_anim',
         x: 80 * 32,
         y: 60 * 32,
         width: 15 * 32,
-        height: 10 * 32,
+        height: 15 * 32,
         depth: 1,
-        customBounds: { x: 16, y: 24, w: 15 * 32 - 32, h: 10 * 32 - 32 }
+        customBounds: { x: 16, y: 24, w: 15 * 32 - 32, h: 15 * 32 - 32 }
     });
 
     // Trees
@@ -707,7 +802,7 @@ function generateMapJSON() {
     // Story locations (Zones)
     const zoneObjects = [
         {
-            id: 200, name: 'home', type: 'zone', x: 8 * 32, y: 8 * 32, width: 7 * 32, height: 5 * 32,
+            id: 200, name: 'home', type: 'zone', x: 28.5 * 32, y: 6.5 * 32, width: 2 * 32, height: 2 * 32,
             properties: [
                 { name: 'taskId', type: 'string', value: 'task1' },
                 { name: 'label', type: 'string', value: 'Home Conversation' },
@@ -777,13 +872,10 @@ function generateMapJSON() {
         }
     ];
 
-    // Trees: random natural placement while preserving houses and task places.
-    const TREE_TILE_W = 4;
-    const TREE_TILE_H = 4;
-    const TREE_TARGET_COUNT = 105;
-    const TREE_MIN_DIST = 3;
+    // Decorative placement (extra houses + trees)
     const HOUSE_EXCLUSION_PAD = 2;
-    const TASK_ZONE_EXCLUSION_PAD = 4;
+    const TASK_ZONE_EXCLUSION_PAD_HOUSES = 4;
+    const TASK_ZONE_EXCLUSION_PAD_TREES = 1;
     const TASK_LANDMARK_EXCLUSION_PAD = 3;
     const POND_EXCLUSION_PAD = 4;
 
@@ -807,15 +899,16 @@ function generateMapJSON() {
         return t === P || t === GA;
     };
 
-    const protectedObjectRects = imageObjects
-        .filter(obj => /^house\d+$/.test(obj.name) || obj.name === 'school')
-        .map(obj => toTileRect(obj.x, obj.y, obj.width || TILE_SIZE, obj.height || TILE_SIZE, HOUSE_EXCLUSION_PAD));
-
     const isTaskZone = (zone) =>
         Array.isArray(zone.properties) && zone.properties.some(prop => prop?.name === 'taskId' && !!prop.value);
-    const protectedTaskRects = zoneObjects
+
+    const protectedTaskRectsForHouses = zoneObjects
         .filter(isTaskZone)
-        .map(zone => toTileRect(zone.x, zone.y, zone.width || TILE_SIZE, zone.height || TILE_SIZE, TASK_ZONE_EXCLUSION_PAD));
+        .map(zone => toTileRect(zone.x, zone.y, zone.width || TILE_SIZE, zone.height || TILE_SIZE, TASK_ZONE_EXCLUSION_PAD_HOUSES));
+
+    const protectedTaskRectsForTrees = zoneObjects
+        .filter(isTaskZone)
+        .map(zone => toTileRect(zone.x, zone.y, zone.width || TILE_SIZE, zone.height || TILE_SIZE, TASK_ZONE_EXCLUSION_PAD_TREES));
 
     const taskLandmarkNames = new Set(['football_ground_entry', 'park_location']);
     const protectedTaskLandmarkRects = imageObjects
@@ -826,65 +919,201 @@ function generateMapJSON() {
         .filter(obj => obj.name === 'pond')
         .map(obj => toTileRect(obj.x, obj.y, obj.width || TILE_SIZE, obj.height || TILE_SIZE, POND_EXCLUSION_PAD));
 
-    const reservedTreeRects = [...protectedObjectRects, ...protectedTaskRects, ...protectedTaskLandmarkRects, ...protectedPondRects];
-    const treePlacements = [];
+    // --- Extra decorative houses ---
+    const EXTRA_HOUSE_TARGET_COUNT = 30;
+    const EXTRA_HOUSE_EXCLUSION_PAD = 2;
+    const EXTRA_HOUSE_RNG_SEED = 20260421;
+    const SPAWN_EXCLUSION_PAD = 6;
 
-    const canPlaceTreeAt = (x, y) => {
-        if (x < 0 || y < 0 || x + TREE_TILE_W > MAP_COLS || y + TREE_TILE_H > MAP_ROWS) return false;
+    const houseTemplates = [
+        { key: 'house1', customBounds: { x: 18, y: 62, w: 121, h: 34 } },
+        { key: 'house2', customBounds: { x: 14, y: 62, w: 85, h: 33 } },
+        { key: 'house3', customBounds: { x: 16, y: 48, w: 107, h: 24 } },
+        { key: 'house4', customBounds: { x: 10, y: 67, w: 70, h: 34 } },
+        { key: 'house5', customBounds: { x: 18, y: 62, w: 121, h: 34 } },
+        { key: 'house6', customBounds: { x: 14, y: 62, w: 85, h: 33 } },
+        { key: 'house7', customBounds: { x: 16, y: 48, w: 107, h: 24 } },
+        { key: 'house8', customBounds: { x: 10, y: 67, w: 70, h: 34 } },
+        { key: 'house9', customBounds: { x: 14, y: 66, w: 99, h: 38 } }
+    ];
 
-        const treeRect = { x, y, w: TREE_TILE_W, h: TREE_TILE_H };
+    for (let i = 10; i <= 29; i++) {
+        houseTemplates.push({ key: `house${i}`, customBounds: { x: 14, y: 64, w: 100, h: 40 } });
+    }
 
-        // Keep tree canopies and trunks off roads.
-        for (let yy = y; yy < y + TREE_TILE_H; yy++) {
-            for (let xx = x; xx < x + TREE_TILE_W; xx++) {
+    const riverExclusionRects = [
+        { x: 0, y: 9, w: MAP_COLS, h: 5 }, // Top river bounds
+        { x: 0, y: 49, w: MAP_COLS, h: 5 } // Bottom river bounds
+    ];
+
+    const reservedHouseRects = [...riverExclusionRects];
+    reservedHouseRects.push(...protectedTaskRectsForHouses, ...protectedTaskLandmarkRects, ...protectedPondRects);
+    reservedHouseRects.push(
+        ...spawnObjects.map(obj => toTileRect(obj.x, obj.y, obj.width || TILE_SIZE, obj.height || TILE_SIZE, SPAWN_EXCLUSION_PAD))
+    );
+
+    const currentHouseScale = (typeof gameState !== 'undefined') ? gameState.houseScale : 2.0;
+    const baseHousePixels = 160 * currentHouseScale;
+
+    // Avoid overlapping existing structures.
+    imageObjects
+        .filter(obj => (typeof obj.key === 'string' && obj.key.startsWith('house')) || obj.name === 'school')
+        .forEach(obj => reservedHouseRects.push(toTileRect(obj.x, obj.y, obj.width || baseHousePixels, obj.height || baseHousePixels, HOUSE_EXCLUSION_PAD)));
+
+    const canPlaceHouseAt = (tileX, tileY, tileW, tileH) => {
+        if (tileX < 0 || tileY < 0 || tileX + tileW > MAP_COLS || tileY + tileH > MAP_ROWS) return false;
+        const rect = { x: tileX, y: tileY, w: tileW, h: tileH };
+
+        // Keep houses off roads/gates.
+        for (let yy = tileY; yy < tileY + tileH; yy++) {
+            for (let xx = tileX; xx < tileX + tileW; xx++) {
                 if (isPathLikeTile(xx, yy)) return false;
             }
         }
 
-        // Keep trees out of protected areas (houses + task places).
-        for (const rect of reservedTreeRects) {
-            if (rectsIntersect(treeRect, rect)) return false;
-        }
-
-        // Keep spacing between tree trunks for a natural look.
-        const trunkX = x + 2;
-        const trunkY = y + 3;
-        for (const placed of treePlacements) {
-            const dx = placed.trunkX - trunkX;
-            const dy = placed.trunkY - trunkY;
-            if (dx * dx + dy * dy < TREE_MIN_DIST * TREE_MIN_DIST) return false;
+        // Keep houses out of reserved areas.
+        for (const r of reservedHouseRects) {
+            if (rectsIntersect(rect, r)) return false;
         }
 
         return true;
     };
 
-    const treeRng = mulberry32(20260420);
-    const minTreeX = 1;
-    const maxTreeX = MAP_COLS - TREE_TILE_W - 1;
-    const minTreeY = 1;
-    const maxTreeY = MAP_ROWS - TREE_TILE_H - 1;
+    const houseRng = mulberry32(EXTRA_HOUSE_RNG_SEED);
+    const maxHouseTries = 20000;
+    let houseTries = 0;
+    let extraPlaced = 0;
+
+    while (extraPlaced < EXTRA_HOUSE_TARGET_COUNT && houseTries < maxHouseTries) {
+        houseTries++;
+        const tpl = houseTemplates[Math.floor(houseRng() * houseTemplates.length)];
+        const tileW = Math.max(1, Math.ceil((tpl.width || baseHousePixels) / TILE_SIZE));
+        const tileH = Math.max(1, Math.ceil((tpl.height || baseHousePixels) / TILE_SIZE));
+
+        const minX = 1;
+        const minY = 1;
+        const maxX = MAP_COLS - tileW - 1;
+        const maxY = MAP_ROWS - tileH - 1;
+        if (maxX <= minX || maxY <= minY) break;
+
+        const x = minX + Math.floor(houseRng() * (maxX - minX + 1));
+        const y = minY + Math.floor(houseRng() * (maxY - minY + 1));
+
+        if (!canPlaceHouseAt(x, y, tileW, tileH)) continue;
+
+        const px = x * TILE_SIZE;
+        const py = y * TILE_SIZE;
+        imageObjects.push({
+            name: `house_extra_${extraPlaced + 1}`,
+            key: tpl.key,
+            x: px,
+            y: py,
+            width: tpl.width,
+            height: tpl.height,
+            customBounds: tpl.customBounds
+        });
+
+        reservedHouseRects.push(toTileRect(px, py, tpl.width || TILE_SIZE, tpl.height || TILE_SIZE, EXTRA_HOUSE_EXCLUSION_PAD));
+        extraPlaced++;
+    }
+
+    // --- Trees (less clumsy) ---
+    const TREE_IMG_W = 128;
+    const TREE_IMG_H = 128;
+    const TREE_TARGET_COUNT = 0;
+    const TREE_MIN_TRUNK_DIST_PX = 120;
+    const TREE_RNG_SEED = 20260421;
+
+    // Recompute protected structure rects after placing extra houses so trees avoid them too.
+    const protectedObjectRectsForTrees = imageObjects
+        .filter(obj => (typeof obj.key === 'string' && obj.key.startsWith('house')) || obj.name === 'school')
+        .map(obj => toTileRect(obj.x, obj.y, obj.width || TILE_SIZE, obj.height || TILE_SIZE, 1));
+
+    const spawnRectsForTrees = spawnObjects.map(obj => toTileRect(obj.x, obj.y, obj.width || TILE_SIZE, obj.height || TILE_SIZE, 3));
+
+    const reservedTreeRects = [
+        ...riverExclusionRects,
+        ...protectedTaskRectsForTrees,
+        ...protectedTaskLandmarkRects,
+        ...protectedPondRects,
+        ...protectedObjectRectsForTrees,
+        ...spawnRectsForTrees
+    ];
+
+    const treePlacements = [];
+    const treeRng = mulberry32(TREE_RNG_SEED);
+    const jitter = (n) => Math.floor((treeRng() * 2 - 1) * n);
+
+    const canPlaceTreeAtPx = (px, py, trunkBounds) => {
+        if (px < 0 || py < 0) return false;
+        if (px + TREE_IMG_W > MAP_COLS * TILE_SIZE) return false;
+        if (py + TREE_IMG_H > MAP_ROWS * TILE_SIZE) return false;
+
+        const treeRectTiles = toTileRect(px, py, TREE_IMG_W, TREE_IMG_H, 0);
+        for (const rect of reservedTreeRects) {
+            if (rectsIntersect(treeRectTiles, rect)) return false;
+        }
+
+        // Keep trunks off roads.
+        const trunkRectTiles = toTileRect(
+            px + trunkBounds.x,
+            py + trunkBounds.y,
+            trunkBounds.w,
+            trunkBounds.h,
+            0
+        );
+
+        for (let yy = trunkRectTiles.y; yy < trunkRectTiles.y + trunkRectTiles.h; yy++) {
+            for (let xx = trunkRectTiles.x; xx < trunkRectTiles.x + trunkRectTiles.w; xx++) {
+                if (isPathLikeTile(xx, yy)) return false;
+            }
+        }
+
+        // Spacing between trunks.
+        const trunkCenterX = px + trunkBounds.x + trunkBounds.w / 2;
+        const trunkCenterY = py + trunkBounds.y + trunkBounds.h / 2;
+        for (const placed of treePlacements) {
+            const dx = placed.trunkX - trunkCenterX;
+            const dy = placed.trunkY - trunkCenterY;
+            if (dx * dx + dy * dy < TREE_MIN_TRUNK_DIST_PX * TREE_MIN_TRUNK_DIST_PX) return false;
+        }
+
+        return true;
+    };
+
+    const minTreePxX = TILE_SIZE;
+    const maxTreePxX = MAP_COLS * TILE_SIZE - TREE_IMG_W - TILE_SIZE;
+    const minTreePxY = TILE_SIZE;
+    const maxTreePxY = MAP_ROWS * TILE_SIZE - TREE_IMG_H - TILE_SIZE;
 
     let tries = 0;
-    const maxTries = 40000;
+    const maxTries = 60000;
 
     while (treePlacements.length < TREE_TARGET_COUNT && tries < maxTries) {
         tries++;
-        const x = minTreeX + Math.floor(treeRng() * (maxTreeX - minTreeX + 1));
-        const y = minTreeY + Math.floor(treeRng() * (maxTreeY - minTreeY + 1));
-        if (!canPlaceTreeAt(x, y)) continue;
-        treePlacements.push({ trunkX: x + 2, trunkY: y + 3 });
-        addTree(x, y);
-    }
+        const baseX = minTreePxX + Math.floor(treeRng() * (maxTreePxX - minTreePxX + 1));
+        const baseY = minTreePxY + Math.floor(treeRng() * (maxTreePxY - minTreePxY + 1));
+        const px = Math.max(0, Math.min(baseX + jitter(10), maxTreePxX));
+        const py = Math.max(0, Math.min(baseY + jitter(10), maxTreePxY));
 
-    // Fallback pass if random attempts are not enough.
-    if (treePlacements.length < TREE_TARGET_COUNT) {
-        for (let y = minTreeY; y <= maxTreeY && treePlacements.length < TREE_TARGET_COUNT; y++) {
-            for (let x = minTreeX; x <= maxTreeX && treePlacements.length < TREE_TARGET_COUNT; x++) {
-                if (!canPlaceTreeAt(x, y)) continue;
-                treePlacements.push({ trunkX: x + 2, trunkY: y + 3 });
-                addTree(x, y);
-            }
-        }
+        const trunkBounds = treeBounds;
+        if (!canPlaceTreeAtPx(px, py, trunkBounds)) continue;
+
+        const key = treeKeys[Math.floor(treeRng() * treeKeys.length)];
+        imageObjects.push({
+            name: `tree_${treePlacements.length + 1}`,
+            key,
+            x: px,
+            y: py,
+            width: TREE_IMG_W,
+            height: TREE_IMG_H,
+            customBounds: trunkBounds
+        });
+
+        treePlacements.push({
+            trunkX: px + trunkBounds.x + trunkBounds.w / 2,
+            trunkY: py + trunkBounds.y + trunkBounds.h / 2
+        });
     }
 
     const json = {
@@ -894,8 +1123,9 @@ function generateMapJSON() {
         type: 'map', version: '1.10', nextlayerid: 9, nextobjectid: 208,
         tilesets: [{
             firstgid: 1, columns: 8, image: 'village-tiles.png',
-            imageheight: Math.ceil((Object.keys(TID).length - 1) / 8) * TILE_SIZE, imagewidth: 8 * TILE_SIZE,
-            margin: 0, name: 'village-tiles', spacing: 0, tilecount: Object.keys(TID).length - 1,
+            imageheight: _margin * 2 + Math.ceil((Object.keys(TID).length - 1) / 8) * TILE_SIZE + (Math.ceil((Object.keys(TID).length - 1) / 8) - 1) * _spacing,
+            imagewidth: _margin * 2 + 8 * TILE_SIZE + 7 * _spacing,
+            margin: _margin, name: 'village-tiles', spacing: _spacing, tilecount: Object.keys(TID).length - 1,
             tileheight: TILE_SIZE, tilewidth: TILE_SIZE
         }],
         layers: [

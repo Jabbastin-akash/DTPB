@@ -348,9 +348,11 @@ Buildings/props (PNG)
   - assets/craftpix-net-504452-free-village-pixel-tileset-for-top-down-defense/...
 
 Spritesheets (PNG + fixed frame sizes)
-  - assets/bull.png      frameWidth=128, frameHeight=128
   - assets/hotdogs.png   frameWidth=50,  frameHeight=45
   - assets/hugedogs.png  frameWidth=22,  frameHeight=18
+
+Cow (PNG sheet)
+  - assets/cow_sprite.png  sliced at runtime into cow_idle/cow_walk frames
 
 Scenery sheet (PNG)
   - assets/Nateonus8x8PixelPack/FullSpriteSheetsNoPadding/Scenery/Grass&StoneScenery.png
