@@ -31,7 +31,7 @@ class BootScene extends Phaser.Scene {
         // Source sheets provided in /assets (filenames may differ from in-game keys)
         // Note: the tileset image is optional; if it fails to load, the game falls back to a procedural tileset.
         this.load.image('tileset_src', 'assets/Tiles main/1 Tiles/FieldsTileset.png');
-        this.load.image('things_sheet', 'assets/things.png');
+        // this.load.image('things_sheet', 'assets/things.png'); // File doesn't exist, commenting out
 
         // Houses (replace old assets/Hope.png crops)
         for (let i = 1; i <= 9; i++) {
@@ -43,12 +43,13 @@ class BootScene extends Phaser.Scene {
 
         // Female character (Valkyrie_3) — use a small subset of frames and build a compact spritesheet at runtime
         // (The source frames are large; we crop to content + downscale into 64x64 frames to match the game.)
-        const valkBase = 'assets/Female_Character/Valkyrie_3/PNG/PNG Sequences';
-        this.load.image('valk3_idle_0', `${valkBase}/Idle/0_Valkyrie_Idle_000.png`);
-        for (let i = 0; i < 6; i++) {
-            const idx = String(i).padStart(3, '0');
-            this.load.image(`valk3_walk_${i}`, `${valkBase}/Walking/0_Valkyrie_Walking_${idx}.png`);
-        }
+        // NOTE: Valkyrie assets don't exist, so we skip loading them and rely on Dora.png or fallback character
+        // const valkBase = 'assets/Female_Character/Valkyrie_3/PNG/PNG Sequences';
+        // this.load.image('valk3_idle_0', `${valkBase}/Idle/0_Valkyrie_Idle_000.png`);
+        // for (let i = 0; i < 6; i++) {
+        //     const idx = String(i).padStart(3, '0');
+        //     this.load.image(`valk3_walk_${i}`, `${valkBase}/Walking/0_Valkyrie_Walking_${idx}.png`);
+        // }
 
         // New Custom Player Female Sheet
         this.load.image('female_red', 'assets/Dora.png');
@@ -130,9 +131,24 @@ class BootScene extends Phaser.Scene {
             "assets/NPC's/ironman.png/sprite-sheet-4x4-transparent.png",
             { frameWidth: 512, frameHeight: 512 }
         );
+
+        // Add error handler for preload failures
+        this.load.on('loaderror', (file) => {
+            console.error(`⚠️ Failed to load: ${file.key} from ${file.url}`);
+        });
     }
 
     create() {
+        console.log('🔧 BootScene.create() starting...');
+        
+        // Debug: Check NPC texture availability
+        console.log('📦 Checking NPC textures at create():');
+        for (let i = 1; i <= 4; i++) {
+            const d_idle_exists = this.textures.exists(`npc${i}_d_idle`);
+            const d_walk_exists = this.textures.exists(`npc${i}_d_walk`);
+            console.log(`  NPC${i}: d_idle=${d_idle_exists}, d_walk=${d_walk_exists}`);
+        }
+        
         // Clear caches
         if (this.cache.tilemap.exists('map')) this.cache.tilemap.remove('map');
         if (this.textures.exists('village-tiles')) this.textures.remove('village-tiles');
@@ -228,21 +244,80 @@ class BootScene extends Phaser.Scene {
             publishCanvasTexture(destKey, createContainedCanvas(srcCanvas, bounds, outW, outH));
         };
 
-        // Ironman walk cycle (ONLY frames 4-7)
-        if (!this.anims.exists('ironman_walk')) {
+        // Ironman directional animations (4x4 spritesheet: 16 frames total)
+        // Row 0: Down (frames 0-3)
+        // Row 1: Left (frames 4-7)
+        // Row 2: Right (frames 8-11)
+        // Row 3: Up (frames 12-15)
+        
+        if (!this.anims.exists('ironman_down')) {
             this.anims.create({
-                key: 'ironman_walk',
-                frames: [
-                    { key: 'ironman', frame: 4 },
-                    { key: 'ironman', frame: 5 },
-                    { key: 'ironman', frame: 6 },
-                    { key: 'ironman', frame: 7 }
-                ],
-                frameRate: 6,
+                key: 'ironman_down',
+                frames: this.anims.generateFrameNumbers('ironman', { start: 0, end: 3 }),
+                frameRate: 10,
                 repeat: -1
             });
         }
 
+        if (!this.anims.exists('ironman_left')) {
+            this.anims.create({
+                key: 'ironman_left',
+                frames: this.anims.generateFrameNumbers('ironman', { start: 4, end: 7 }),
+                frameRate: 10,
+                repeat: -1
+            });
+        }
+
+        if (!this.anims.exists('ironman_right')) {
+            this.anims.create({
+                key: 'ironman_right',
+                frames: this.anims.generateFrameNumbers('ironman', { start: 8, end: 11 }),
+                frameRate: 10,
+                repeat: -1
+            });
+        }
+
+        if (!this.anims.exists('ironman_up')) {
+            this.anims.create({
+                key: 'ironman_up',
+                frames: this.anims.generateFrameNumbers('ironman', { start: 12, end: 15 }),
+                frameRate: 10,
+                repeat: -1
+            });
+        }
+
+        // Ironman idle animations (first frame of each direction)
+        if (!this.anims.exists('ironman_idle_down')) {
+            this.anims.create({
+                key: 'ironman_idle_down',
+                frames: [{ key: 'ironman', frame: 0 }],
+                frameRate: 1
+            });
+        }
+
+        if (!this.anims.exists('ironman_idle_left')) {
+            this.anims.create({
+                key: 'ironman_idle_left',
+                frames: [{ key: 'ironman', frame: 4 }],
+                frameRate: 1
+            });
+        }
+
+        if (!this.anims.exists('ironman_idle_right')) {
+            this.anims.create({
+                key: 'ironman_idle_right',
+                frames: [{ key: 'ironman', frame: 8 }],
+                frameRate: 1
+            });
+        }
+
+        if (!this.anims.exists('ironman_idle_up')) {
+            this.anims.create({
+                key: 'ironman_idle_up',
+                frames: [{ key: 'ironman', frame: 12 }],
+                frameRate: 1
+            });
+        }
 
         // Build the in-game house textures from the new PNGs while keeping the same
         // output dimensions as the previous map layout/collision geometry.
@@ -316,8 +391,27 @@ class BootScene extends Phaser.Scene {
         };
 
         const buildSheetFromNpcPack = (setNum, frameW = 48, frameH = 48) => {
-            const getImg = (k) => this.textures.get(k)?.getSourceImage?.();
+            const getImg = (k) => {
+                try {
+                    const tex = this.textures.get(k);
+                    if (!tex) {
+                        console.warn(`  ❌ Texture not found: ${k}`);
+                        return null;
+                    }
+                    const img = tex.getSourceImage?.();
+                    if (!img) {
+                        console.warn(`  ❌ No source image for texture: ${k}`);
+                        return null;
+                    }
+                    console.log(`  ✓ Loaded ${k}: ${img.width}x${img.height}`);
+                    return img;
+                } catch (e) {
+                    console.error(`  💥 Error getting image ${k}:`, e.message);
+                    return null;
+                }
+            };
 
+            console.log(`Building NPC sheet for set ${setNum}...`);
             const dIdle = getImg(`npc${setNum}_d_idle`);
             const dWalk = getImg(`npc${setNum}_d_walk`);
             const uIdle = getImg(`npc${setNum}_u_idle`);
@@ -325,7 +419,17 @@ class BootScene extends Phaser.Scene {
             const sIdle = getImg(`npc${setNum}_s_idle`);
             const sWalk = getImg(`npc${setNum}_s_walk`);
 
-            if (!dIdle || !dWalk || !uIdle || !uWalk || !sIdle || !sWalk) return null;
+            if (!dIdle || !dWalk || !uIdle || !uWalk || !sIdle || !sWalk) {
+                console.warn(`⚠️ Missing NPC assets for set ${setNum}:`, {
+                    dIdle: !!dIdle,
+                    dWalk: !!dWalk,
+                    uIdle: !!uIdle,
+                    uWalk: !!uWalk,
+                    sIdle: !!sIdle,
+                    sWalk: !!sWalk
+                });
+                return null;
+            }
 
             const canvas = document.createElement('canvas');
             canvas.width = HUMANOID_FRAMES_PER_DIR * frameW;
@@ -372,10 +476,11 @@ class BootScene extends Phaser.Scene {
             addSpriteSheetFromCanvas('player_male', buildSheetFromCharacterBlock(playerSheetImg, 8, 0, 64, 64), 64, 64);
         }
 
-        // Build player_female from Valkyrie_3 frames (single-direction art; we mirror for left)
+        // Build player_female from Dora.png or fallback to player_male
+        // (Valkyrie assets don't exist, so we skip them)
         const getImg = (k) => this.textures.get(k)?.getSourceImage?.();
-        const valkIdle = getImg('valk3_idle_0');
-        const valkWalk = Array.from({ length: 6 }, (_, i) => getImg(`valk3_walk_${i}`)).filter(Boolean);
+        const valkIdle = null;
+        const valkWalk = [];
 
         const scanAlphaBounds = (data, width, height, alphaThreshold, step) => {
             let minX = width;
@@ -526,22 +631,55 @@ class BootScene extends Phaser.Scene {
             villager1: 3,
             villager2: 4,
             villager3: 3,
+            villager4: 4,  // Added for compatibility with expanded NPC lists
             task1: 1,
             task2: 2,
+            task3: 3,
             task3a: 3,
             task3b: 4,
             task4: 1,
         };
 
+        const createPlaceholderSheet = (color = '#ff00ff', w = 48, h = 48) => {
+            const canvas = document.createElement('canvas');
+            canvas.width = HUMANOID_FRAMES_PER_DIR * w;
+            canvas.height = 4 * h;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = color;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('?', canvas.width / 2, canvas.height / 2);
+            return canvas;
+        };
+
         const buildNpcSheets = () => {
+            console.log('🎨 Building NPC sheets...');
             Object.entries(npcKeyToSet).forEach(([key, setNum]) => {
                 const canvas = buildSheetFromNpcPack(setNum, 48, 48);
-                if (!canvas) return;
+                if (!canvas) {
+                    console.warn(`⚠️ NPC sheet creation failed for ${key} (set ${setNum}), using placeholder`);
+                    const placeholderCanvas = createPlaceholderSheet('#8800ff');
+                    addSpriteSheetFromCanvas(key, placeholderCanvas, 48, 48);
+                    console.log(`  📍 Placeholder created for ${key}`);
+                    return;
+                }
                 addSpriteSheetFromCanvas(key, canvas, 48, 48);
+                console.log(`✅ NPC sheet created: ${key}`);
             });
+            console.log('🎨 NPC sheet building complete');
         };
 
         buildNpcSheets();
+
+        // Debug: Check which NPC textures were successfully created
+        console.log('🔍 NPC Texture Status AFTER buildNpcSheets:');
+        Object.keys(npcKeyToSet).forEach(npcKey => {
+            const exists = this.textures.exists(npcKey);
+            console.log(`  ${npcKey}: ${exists ? '✅' : '❌'}`);
+        });
 
         // Generate exclamation mark
         const exclCanvas = generateExclamationTexture();
@@ -551,8 +689,46 @@ class BootScene extends Phaser.Scene {
             const spriteKeys = ['player_male', 'player_female', ...Object.keys(npcKeyToSet)];
             const dirs = ['down', 'left', 'right', 'up'];
 
+            console.log('📺 Creating humanoid animations for:', spriteKeys.join(', '));
+
             for (const key of spriteKeys) {
-                if (!this.textures.exists(key)) continue;
+                const texExists = this.textures.exists(key);
+                if (!texExists) {
+                    console.warn(`  ❌ Texture doesn't exist: ${key}, but creating dummy animations anyway`);
+                    // Create dummy animations using a fallback texture if available
+                    const fallbackKey = this.textures.exists('player_male') ? 'player_male' : null;
+                    if (!fallbackKey) {
+                        console.error(`  💥 No fallback texture available for ${key}`);
+                        continue;
+                    }
+                    // Use fallback texture for animation frames
+                    for (let d = 0; d < 4; d++) {
+                        const base = d * HUMANOID_FRAMES_PER_DIR;
+                        const walkStart = base + 1;
+                        const walkEnd = base + HUMANOID_FRAMES_PER_DIR - 1;
+                        const idleFrame = base;
+
+                        if (!this.anims.exists(`${key}_${dirs[d]}`)) {
+                            this.anims.create({
+                                key: `${key}_${dirs[d]}`,
+                                frames: this.anims.generateFrameNumbers(fallbackKey, { start: walkStart, end: walkEnd }),
+                                frameRate: 10,
+                                repeat: -1
+                            });
+                        }
+
+                        if (!this.anims.exists(`${key}_idle_${dirs[d]}`)) {
+                            this.anims.create({
+                                key: `${key}_idle_${dirs[d]}`,
+                                frames: [{ key: fallbackKey, frame: idleFrame }],
+                                frameRate: 1
+                            });
+                        }
+                    }
+                    console.log(`  📍 Created fallback animations for ${key} using ${fallbackKey}`);
+                    continue;
+                }
+                console.log(`  ✓ Creating animations for ${key}`);
                 for (let d = 0; d < 4; d++) {
                     const base = d * HUMANOID_FRAMES_PER_DIR;
                     const walkStart = base + 1;
@@ -563,7 +739,7 @@ class BootScene extends Phaser.Scene {
                         this.anims.create({
                             key: `${key}_${dirs[d]}`,
                             frames: this.anims.generateFrameNumbers(key, { start: walkStart, end: walkEnd }),
-                            frameRate: 8,
+                            frameRate: 10,
                             repeat: -1
                         });
                     }
@@ -623,6 +799,23 @@ class BootScene extends Phaser.Scene {
         createHumanoidAnimations();
         createPetAnimations();
         createExtraAnimations();
+
+        // Debug: Verify ALL humanoid animations exist
+        console.log('✅ Ironman animations created:');
+        console.log('  ironman_down:', this.anims.exists('ironman_down'));
+        console.log('  ironman_left:', this.anims.exists('ironman_left'));
+        console.log('  ironman_right:', this.anims.exists('ironman_right'));
+        console.log('  ironman_up:', this.anims.exists('ironman_up'));
+        
+        console.log('✅ Player animations created:');
+        console.log('  player_male_down:', this.anims.exists('player_male_down'));
+        console.log('  player_female_down:', this.anims.exists('player_female_down'));
+        
+        console.log('✅ NPC animations created:');
+        ['guide', 'shopkeeper', 'villager1', 'villager2', 'villager3', 'task1', 'task2', 'task3a', 'task3b', 'task4'].forEach(npc => {
+            console.log(`  ${npc}_down:`, this.anims.exists(`${npc}_down`));
+            console.log(`  ${npc}_idle_down:`, this.anims.exists(`${npc}_idle_down`));
+        });
 
         this.scene.start('CharSelectScene');
     }

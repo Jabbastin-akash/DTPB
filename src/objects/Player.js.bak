@@ -145,27 +145,22 @@ class Player extends Phaser.Physics.Arcade.Sprite {
             this.baseY = this.y;
         }
 
-        // Movement system: Clean separation between ground and flying
+        // Unify walking/flying movement: ensure we reset drag when not flying
         if (this.texture.key === 'ironman' && this.isFlying) {
-            // FLYING SYSTEM (Ironman only): Acceleration-based for smooth glide
             this.body.setAllowGravity(false);
-            this.body.setAcceleration(vx * 800, vy * 800);
-            this.body.setDrag(400, 400);
+            this.body.setDrag(300, 300);
             this.body.setMaxVelocity(220, 220);
+
+            // Acceleration (smooth start/stop driven by drag)
+            this.body.setAcceleration(vx * 600, vy * 600);
         } else {
-            // GROUND SYSTEM: Pure velocity for instant, responsive movement
             this.body.setAllowGravity(true);
+            this.body.setMaxVelocity(10000, 10000);
             this.body.setAcceleration(0, 0);
             this.body.setDrag(0, 0);
 
-            const speed = 150;
-            this.body.setVelocity(vx * speed, vy * speed);
-
-            // Apply physics-relative bob (always references body position)
-            const currentSpeed = Math.hypot(this.body.velocity.x, this.body.velocity.y);
-            const speedFactor = Math.min(1, currentSpeed / 150);
-            const bobAmount = Math.sin(this.scene.time.now / 140) * (1 + speedFactor);
-            this.setY(this.body.y + bobAmount);
+            const walkSpeed = (this.texture.key === 'ironman') ? 150 : this.speed;
+            this.body.setVelocity(vx * walkSpeed, vy * walkSpeed);
         }
 
         // Fly visuals + hover (Ironman only)
@@ -192,11 +187,14 @@ class Player extends Phaser.Physics.Arcade.Sprite {
             this.setDepth(Math.floor(this.y));
         }
 
-        // Play anims (prevent spam by checking current anim)
+        // Play anims
         if (isMoving) {
-            const nextAnim = this.texture.key === 'ironman' ? `ironman_${this.facing}` : `${this.spriteKey}_${this.facing}`;
-            if (this.anims.currentAnim?.key !== nextAnim) {
-                this.anims.play(nextAnim, true);
+            if (this.texture.key === 'ironman') {
+                this.anims.play(`ironman_${this.facing}`, true);
+            } else {
+                this.y += Math.sin(this.scene.time.now / 120) * 0.5;
+                this.anims.play(`${this.spriteKey}_${this.facing}`, true);
+                this.y += Math.sin(this.scene.time.now / 120) * 0.5;
             }
         } else {
             if (this.texture.key === 'ironman') {
@@ -210,10 +208,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
                 };
                 this.setFrame(idleMap[this.facing] ?? 0);
             } else {
-                const idleAnim = `${this.spriteKey}_idle_${this.facing}`;
-                if (this.anims.currentAnim?.key !== idleAnim) {
-                    this.anims.play(idleAnim, true);
-                }
+                this.anims.play(`${this.spriteKey}_idle_${this.facing}`, true);
             }
         }
 

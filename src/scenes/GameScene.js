@@ -141,10 +141,12 @@ class GameScene extends Phaser.Scene {
         this.input.keyboard.on("keydown-M", this._onDebugOpenMaze);
 
 
-        // Camera setup
-        this.cameras.main.startFollow(this.player, true, 0.05, 0.05);
+        // Camera setup with smooth lerp and deadzone
+        this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
         this.cameras.main.setZoom(1);
         this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+        // Deadzone for natural feel (player can move before camera moves)
+        this.cameras.main.setDeadzone(100, 80);
 
         // --- NPC Setup ---
         this.npcs = this.physics.add.group({ classType: NPC, runChildUpdate: true });
