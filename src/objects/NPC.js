@@ -185,11 +185,7 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
                 this.facing = dy > 0 ? 'down' : 'up';
             }
 
-            // Apply physics-relative bob (always references body position)
-            const speed = Math.hypot(this.body.velocity.x, this.body.velocity.y);
-            const speedFactor = Math.min(1, speed / this.speed);
-            const bobAmount = Math.sin(this.scene.time.now / 140) * (1 + speedFactor);
-            this.setY(this.body.y + bobAmount);
+
 
             this._playAnimSafe(`${this.spriteKey}_${this.facing}`, true);
         }

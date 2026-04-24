@@ -161,11 +161,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
             const speed = 150;
             this.body.setVelocity(vx * speed, vy * speed);
 
-            // Apply physics-relative bob (always references body position)
-            const currentSpeed = Math.hypot(this.body.velocity.x, this.body.velocity.y);
-            const speedFactor = Math.min(1, currentSpeed / 150);
-            const bobAmount = Math.sin(this.scene.time.now / 140) * (1 + speedFactor);
-            this.setY(this.body.y + bobAmount);
+
         }
 
         // Fly visuals + hover (Ironman only)
