@@ -21,11 +21,6 @@ class HUD extends Phaser.GameObjects.Container {
         const bg = scene.add.graphics();
         bg.fillStyle(0x000000, 0.55);
         bg.fillRoundedRect(0, 0, GAME_WIDTH, BAR_HEIGHT, 8);
-        // subtle depth: top highlight + bottom shadow
-        bg.fillStyle(0xffffff, 0.06);
-        bg.fillRect(0, 0, GAME_WIDTH, 2);
-        bg.fillStyle(0x000000, 0.35);
-        bg.fillRect(0, BAR_HEIGHT - 2, GAME_WIDTH, 2);
         bg.lineStyle(2, 0x5a5a6a, 0.55);
         bg.strokeRoundedRect(0, 0, GAME_WIDTH, BAR_HEIGHT, 8);
         this.add(bg);
@@ -35,14 +30,14 @@ class HUD extends Phaser.GameObjects.Container {
             fontFamily: '"Press Start 2P"',
             fontSize: '20px',
             color: '#FFD700'
-        }).setShadow(2, 2, 'rgba(0,0,0,0.65)', 0);
+        });
 
         this.pointsText = scene.add.text(pointsIcon.x + pointsIcon.width + 10, PADDING_Y, gameState.points, {
             fontFamily: '"Press Start 2P"',
             fontSize: '24px',
             color: '#FFD700',
             align: 'left'
-        }).setOrigin(0, 0).setShadow(2, 2, 'rgba(0,0,0,0.65)', 0);
+        }).setOrigin(0, 0);
 
         this.add([pointsIcon, this.pointsText].filter(Boolean));
 
@@ -52,14 +47,14 @@ class HUD extends Phaser.GameObjects.Container {
             fontSize: '16px',
             color: '#ffffff',
             align: 'right'
-        }).setOrigin(1, 0).setShadow(2, 2, 'rgba(0,0,0,0.65)', 0);
+        }).setOrigin(1, 0);
 
         this.progressCount = scene.add.text(tasksLabel.x, PADDING_Y + 18, `${gameState.getCompletedTaskCount()}/${this.totalTasks}`, {
             fontFamily: '"Press Start 2P"',
             fontSize: '14px',
             color: '#cfd0d7',
             align: 'right'
-        }).setOrigin(1, 0).setShadow(2, 2, 'rgba(0,0,0,0.65)', 0);
+        }).setOrigin(1, 0);
 
         // Progress Bar
         const progressBg = scene.add.graphics();

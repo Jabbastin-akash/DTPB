@@ -31,25 +31,29 @@ class BootScene extends Phaser.Scene {
         // Source sheets provided in /assets (filenames may differ from in-game keys)
         // Note: the tileset image is optional; if it fails to load, the game falls back to a procedural tileset.
         this.load.image('tileset_src', 'assets/Tiles main/1 Tiles/FieldsTileset.png');
-        // this.load.image('things_sheet', 'assets/things.png'); // File doesn't exist, commenting out
+
 
         // Houses (replace old assets/Hope.png crops)
         for (let i = 1; i <= 9; i++) {
             this.load.image(`house${i}_src`, `assets/Houses/house${i}.png?v=${ASSET_V}`);
         }
+        for (let i = 10; i <= 29; i++) {
+            this.load.image(`house${i}`, `assets/Houses/house${i}.png?v=${ASSET_V}`);
+        }
+        for (let i = 1; i <= 4; i++) {
+            this.load.image(`fence${i}`, `assets/Houses/fence${i}.png?v=${ASSET_V}`);
+        }
+
+        // River & Bridge
+        this.load.image('river_img', `assets/Bridge Path/river.png?v=${ASSET_V}`);
+        this.load.image('bridge_img', `assets/Bridge Path/bridge.png?v=${ASSET_V}`);
+
+        // Flowers
+        this.load.image('flowers_sheet', 'assets/Flowers.png');
 
         // Player character sheet (used to build player sprite sheets)
         this.load.image('player_sheet', 'assets/character.png');
 
-        // Female character (Valkyrie_3) — use a small subset of frames and build a compact spritesheet at runtime
-        // (The source frames are large; we crop to content + downscale into 64x64 frames to match the game.)
-        // NOTE: Valkyrie assets don't exist, so we skip loading them and rely on Dora.png or fallback character
-        // const valkBase = 'assets/Female_Character/Valkyrie_3/PNG/PNG Sequences';
-        // this.load.image('valk3_idle_0', `${valkBase}/Idle/0_Valkyrie_Idle_000.png`);
-        // for (let i = 0; i < 6; i++) {
-        //     const idx = String(i).padStart(3, '0');
-        //     this.load.image(`valk3_walk_${i}`, `${valkBase}/Walking/0_Valkyrie_Walking_${idx}.png`);
-        // }
 
         // New Custom Player Female Sheet
         this.load.image('female_red', 'assets/Dora.png');
@@ -94,7 +98,8 @@ class BootScene extends Phaser.Scene {
         this.load.image('decor_box', 'assets/Tiles main/2 Objects/4 Box/1.png');
 
         // New Assets
-        this.load.spritesheet('bull', 'assets/bull.png', { frameWidth: 128, frameHeight: 128 });
+        // Cow spritesheet source (we slice frames at runtime because this sheet includes labels/margins)
+        this.load.image('cow_sheet_src', `assets/cow_sprite.png?v=${ASSET_V}`);
         this.load.spritesheet('fountain', 'assets/Fountain.png', { frameWidth: 64, frameHeight: 64 });
         this.load.image('football_ball_img', 'assets/Football/Ball.png');
         this.load.image('football_goalpost_img', 'assets/Football/GoalPost.png');
@@ -108,7 +113,8 @@ class BootScene extends Phaser.Scene {
         this.load.image('class_src', `assets/School/Class.png?v=${ASSET_V}`);
 
         // Additional world textures referenced by newer scenes/zones
-        this.load.image('pond', 'assets/Pond.png');
+        // Pond is a static image (no animation)
+        this.load.image('pond', `assets/Pond.png?v=${ASSET_V}`);
         this.load.image('park_location_img', `assets/Park/Park.png?v=${ASSET_V}_park5`);
         this.load.image('path_tile', 'assets/Path.png');
         this.load.image('football_ground_img', `assets/Football/football-ground.png?v=${ASSET_V}`);
@@ -155,11 +161,92 @@ class BootScene extends Phaser.Scene {
         // --- Generate tileset (from provided tileset source image when available) ---
         const tilesetSourceImg = this.textures.get('tileset_src')?.getSourceImage?.();
         const grassTextures = [this.textures.get('grass_tex_8')?.getSourceImage?.()].filter(Boolean);
-        const tilesetResult = generateTilesetImage(tilesetSourceImg, grassTextures);
+        const pathSrc = this.textures.get('path_tile')?.getSourceImage?.();
+
+        // Normalize Path.png (key out near-black background, crop to content, scale to tile size)
+        let croppedPathTexture = null;
+        if (pathSrc && pathSrc.width > 0) {
+            const pc = document.createElement('canvas');
+            pc.width = pathSrc.width;
+            pc.height = pathSrc.height;
+            const pctx = pc.getContext('2d', { willReadFrequently: true });
+            pctx.drawImage(pathSrc, 0, 0);
+
+            const imageData = pctx.getImageData(0, 0, pc.width, pc.height);
+            const pdata = imageData.data;
+            const blackThreshold = 12;
+
+            let minX = pc.width, maxX = -1, minY = pc.height, maxY = -1;
+            for (let y = 0; y < pc.height; y++) {
+                for (let x = 0; x < pc.width; x++) {
+                    const idx = (y * pc.width + x) * 4;
+                    const r = pdata[idx];
+                    const g = pdata[idx + 1];
+                    const b = pdata[idx + 2];
+                    const a = pdata[idx + 3];
+
+                    if (a > 20 && r <= blackThreshold && g <= blackThreshold && b <= blackThreshold) {
+                        pdata[idx + 3] = 0;
+                        continue;
+                    }
+
+                    if (pdata[idx + 3] > 20) {
+                        if (x < minX) minX = x;
+                        if (x > maxX) maxX = x;
+                        if (y < minY) minY = y;
+                        if (y > maxY) maxY = y;
+                    }
+                }
+            }
+
+            pctx.putImageData(imageData, 0, 0);
+
+            let sourceCanvas = pc;
+            if (maxX >= minX && maxY >= minY) {
+                const cw = maxX - minX + 1;
+                const ch = maxY - minY + 1;
+                
+                // Inset the crop by 20% on all sides to completely remove the jagged dark border
+                // of the original Path.png asset, leaving only the seamless dirt texture.
+                const insetX = Math.floor(cw * 0.20);
+                const insetY = Math.floor(ch * 0.20);
+                
+                const finalX = minX + insetX;
+                const finalY = minY + insetY;
+                const finalW = Math.max(1, cw - (insetX * 2));
+                const finalH = Math.max(1, ch - (insetY * 2));
+
+                const cropped = document.createElement('canvas');
+                cropped.width = finalW;
+                cropped.height = finalH;
+                const cctx = cropped.getContext('2d');
+                cctx.drawImage(pc, finalX, finalY, finalW, finalH, 0, 0, finalW, finalH);
+                sourceCanvas = cropped;
+            }
+
+            const tile = document.createElement('canvas');
+            tile.width = 32;
+            tile.height = 32;
+            const tctx = tile.getContext('2d');
+            tctx.imageSmoothingEnabled = false;
+            tctx.drawImage(sourceCanvas, 0, 0, sourceCanvas.width, sourceCanvas.height, 0, 0, 32, 32);
+
+            croppedPathTexture = tile;
+            if (this.textures.exists('path_tile')) this.textures.remove('path_tile');
+            this.textures.addCanvas('path_tile', tile);
+        }
+
+        const tilesetResult = generateTilesetImage(tilesetSourceImg, grassTextures, croppedPathTexture);
         this.textures.addCanvas('village-tiles', tilesetResult.canvas);
 
+        // Store extrusion metadata so GameScene can configure the tileset correctly
+        this.registry.set('tilesetMeta', {
+            margin: tilesetResult.margin || 0,
+            spacing: tilesetResult.spacing || 0
+        });
+
         // --- Generate map JSON ---
-        const mapData = generateMapJSON();
+        const mapData = generateMapJSON(tilesetResult.margin, tilesetResult.spacing);
         this.cache.tilemap.add('map', { format: Phaser.Tilemaps.Formats.TILED_JSON, data: mapData.json });
         // Store image objects data globally or in registry so we can fetch them in GameScene
         this.registry.set('imageObjects', mapData.imageObjects);
@@ -223,6 +310,48 @@ class BootScene extends Phaser.Scene {
             if (this.textures.exists(destKey)) this.textures.remove(destKey);
             this.textures.addCanvas(destKey, canvas);
         };
+
+        // --- Auto-Extract Flowers from Flowers.png ---
+        const fSheet = this.textures.get('flowers_sheet')?.getSourceImage();
+        if (fSheet && fSheet.width > 0) {
+            const fCanvas = document.createElement('canvas');
+            fCanvas.width = fSheet.width;
+            fCanvas.height = fSheet.height;
+            const fCtx = fCanvas.getContext('2d', { willReadFrequently: true });
+            fCtx.drawImage(fSheet, 0, 0);
+            const fData = fCtx.getImageData(0,0,fCanvas.width,fCanvas.height).data;
+            
+            // Simple grid-based heuristic extractor
+            let flowerCount = 0;
+            const size = 48; // Max size of a flower patch
+            for (let y = 0; y < fCanvas.height; y += size/2) {
+                for (let x = 0; x < fCanvas.width; x += size/2) {
+                    let colored = 0, black = 0, alpha = 0;
+                    for (let dy = 0; dy < size; dy++) {
+                        for (let dx = 0; dx < size; dx++) {
+                            if (y+dy >= fCanvas.height || x+dx >= fCanvas.width) continue;
+                            const idx = ((y+dy)*fCanvas.width + (x+dx))*4;
+                            if (fData[idx+3] > 20) {
+                                alpha++;
+                                if (fData[idx] < 40 && fData[idx+1] < 40 && fData[idx+2] < 40) black++;
+                                else colored++;
+                            }
+                        }
+                    }
+                    // Is it mostly colored pixels (not black text) and has some substance?
+                    if (alpha > 40 && colored > alpha * 0.7) {
+                        flowerCount++;
+                        const out = document.createElement('canvas');
+                        out.width = size; out.height = size;
+                        out.getContext('2d').drawImage(fCanvas, x, y, size, size, 0, 0, size, size);
+                        publishCanvasTexture(`flower_ext_${flowerCount}`, out);
+                        // Skip ahead to avoid overlapping extracts
+                        x += size/2; 
+                    }
+                }
+            }
+            this.registry.set('flowerCount', flowerCount);
+        }
 
         // Trim+contain a source image into a fixed output size (preserves aspect ratio).
         const makeTrimmedContainedTexture = (srcKey, destKey, outW, outH, alphaThreshold = 1) => {
@@ -449,6 +578,7 @@ class BootScene extends Phaser.Scene {
                 ctx.drawImage(img, sx, sy, frameW, frameH, 0, 0, frameW, frameH);
                 ctx.restore();
             };
+
 
             const drawDir = (rowIndex, idleImg, walkImg, flipX) => {
                 // Column 0: idle frame (use first frame)
@@ -788,9 +918,185 @@ class BootScene extends Phaser.Scene {
         };
 
         const createExtraAnimations = () => {
-            if (this.textures.exists('bull') && !this.anims.exists('bull_anim')) {
-                this.anims.create({ key: 'bull_anim', frames: this.anims.generateFrameNumbers('bull', { start: 0, end: 3 }), frameRate: 4, repeat: -1 });
-            }
+            // Cow: build idle/walk animations from the labeled sheet.
+            // Output textures: cow_idle_0..3 and cow_walk_0..3
+            const buildCowFromSheet = () => {
+                if (this.textures.exists('cow_idle_0') && this.anims.exists('cow_walk')) return;
+                if (!this.textures.exists('cow_sheet_src')) return;
+
+                const img = this.textures.get('cow_sheet_src')?.getSourceImage?.();
+                if (!img?.width || !img?.height) return;
+
+                const srcW = img.width;
+                const srcH = img.height;
+
+                const srcCanvas = document.createElement('canvas');
+                srcCanvas.width = srcW;
+                srcCanvas.height = srcH;
+                const srcCtx = srcCanvas.getContext('2d', { willReadFrequently: true });
+                srcCtx.imageSmoothingEnabled = false;
+                srcCtx.clearRect(0, 0, srcW, srcH);
+                srcCtx.drawImage(img, 0, 0);
+
+                const { data } = srcCtx.getImageData(0, 0, srcW, srcH);
+                const bgR = data[0];
+                const bgG = data[1];
+                const bgB = data[2];
+                const bgA = data[3];
+
+                const isForeground = (x, y) => {
+                    const i = (y * srcW + x) * 4;
+                    const a = data[i + 3];
+                    if (a < 10) return false;
+
+                    // If the sheet has an opaque background, treat (near) background color as empty.
+                    if (bgA > 0) {
+                        const dr = Math.abs(data[i] - bgR);
+                        const dg = Math.abs(data[i + 1] - bgG);
+                        const db = Math.abs(data[i + 2] - bgB);
+                        if (dr + dg + db < 10) return false;
+                    }
+
+                    return true;
+                };
+
+                const findSegments = (counts, threshold, minLen) => {
+                    const segs = [];
+                    let start = -1;
+                    for (let i = 0; i < counts.length; i++) {
+                        const on = counts[i] >= threshold;
+                        if (on && start < 0) start = i;
+                        if ((!on || i === counts.length - 1) && start >= 0) {
+                            const end = on && i === counts.length - 1 ? i : i - 1;
+                            if (end - start + 1 >= minLen) segs.push({ start, end });
+                            start = -1;
+                        }
+                    }
+                    return segs;
+                };
+
+                // Heuristic: find where the actual sprite columns start (skip label area on the left).
+                const xCountsAll = new Array(srcW).fill(0);
+                for (let y = 0; y < srcH; y++) {
+                    for (let x = 0; x < srcW; x++) {
+                        if (isForeground(x, y)) xCountsAll[x]++;
+                    }
+                }
+                const maxXC = Math.max(...xCountsAll);
+                let spriteStartX = 0;
+                for (let x = 0; x < srcW; x++) {
+                    if (xCountsAll[x] >= maxXC * 0.35) {
+                        spriteStartX = Math.max(0, x - 2);
+                        break;
+                    }
+                }
+
+                // Column segments (4 columns of cows)
+                const xCounts = new Array(srcW - spriteStartX).fill(0);
+                for (let y = 0; y < srcH; y++) {
+                    for (let x = spriteStartX; x < srcW; x++) {
+                        if (isForeground(x, y)) xCounts[x - spriteStartX]++;
+                    }
+                }
+                const maxX = Math.max(...xCounts);
+                const colSegs = findSegments(xCounts, maxX * 0.22, 10)
+                    .map(s => ({ start: s.start + spriteStartX, end: s.end + spriteStartX }))
+                    .sort((a, b) => a.start - b.start)
+                    .slice(0, 4);
+
+                // Row segments (6 action rows)
+                const yCounts = new Array(srcH).fill(0);
+                for (let y = 0; y < srcH; y++) {
+                    let c = 0;
+                    for (let x = spriteStartX; x < srcW; x++) {
+                        if (isForeground(x, y)) c++;
+                    }
+                    yCounts[y] = c;
+                }
+                const maxY = Math.max(...yCounts);
+                const rowSegs = findSegments(yCounts, maxY * 0.25, 10)
+                    .sort((a, b) => a.start - b.start)
+                    .slice(0, 6);
+
+                if (colSegs.length < 4 || rowSegs.length < 2) return;
+
+                const OUT_W = 128;
+                const OUT_H = 128;
+                const pad = 2;
+
+                const extractFrame = (rowIndex, colIndex, outKey) => {
+                    if (this.textures.exists(outKey)) return true;
+
+                    const ry = rowSegs[rowIndex];
+                    const cx = colSegs[colIndex];
+                    let minX = srcW;
+                    let minY = srcH;
+                    let maxX = -1;
+                    let maxY = -1;
+
+                    for (let y = ry.start; y <= ry.end; y++) {
+                        for (let x = cx.start; x <= cx.end; x++) {
+                            if (!isForeground(x, y)) continue;
+                            if (x < minX) minX = x;
+                            if (y < minY) minY = y;
+                            if (x > maxX) maxX = x;
+                            if (y > maxY) maxY = y;
+                        }
+                    }
+
+                    if (maxX < 0 || maxY < 0) return false;
+
+                    minX = Math.max(0, minX - pad);
+                    minY = Math.max(0, minY - pad);
+                    maxX = Math.min(srcW - 1, maxX + pad);
+                    maxY = Math.min(srcH - 1, maxY + pad);
+
+                    const bw = maxX - minX + 1;
+                    const bh = maxY - minY + 1;
+
+                    const frameCanvas = document.createElement('canvas');
+                    frameCanvas.width = OUT_W;
+                    frameCanvas.height = OUT_H;
+                    const fctx = frameCanvas.getContext('2d');
+                    fctx.imageSmoothingEnabled = false;
+                    fctx.clearRect(0, 0, OUT_W, OUT_H);
+
+                    const dx = Math.floor((OUT_W - bw) / 2);
+                    const dy = Math.max(0, OUT_H - bh);
+                    fctx.drawImage(img, minX, minY, bw, bh, dx, dy, bw, bh);
+
+                    this.textures.addCanvas(outKey, frameCanvas);
+                    return true;
+                };
+
+                const idleKeys = [];
+                const walkKeys = [];
+                for (let i = 0; i < 4; i++) {
+                    const idleKey = `cow_idle_${i}`;
+                    const walkKey = `cow_walk_${i}`;
+                    if (extractFrame(0, i, idleKey)) idleKeys.push(idleKey);
+                    if (extractFrame(1, i, walkKey)) walkKeys.push(walkKey);
+                }
+
+                if (!this.anims.exists('cow_idle') && idleKeys.length > 0) {
+                    this.anims.create({
+                        key: 'cow_idle',
+                        frames: idleKeys.map(k => ({ key: k })),
+                        frameRate: 6,
+                        repeat: -1
+                    });
+                }
+                if (!this.anims.exists('cow_walk') && walkKeys.length > 0) {
+                    this.anims.create({
+                        key: 'cow_walk',
+                        frames: walkKeys.map(k => ({ key: k })),
+                        frameRate: 8,
+                        repeat: -1
+                    });
+                }
+            };
+
+            buildCowFromSheet();
             if (this.textures.exists('fountain') && !this.anims.exists('fountain_anim')) {
                 this.anims.create({ key: 'fountain_anim', frames: this.anims.generateFrameNumbers('fountain', { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
             }

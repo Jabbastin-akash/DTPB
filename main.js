@@ -14,6 +14,26 @@ function patchContainerAdd() {
     };
 }
 
+function clearFxTarget(target) {
+    if (!target) return;
+    if (typeof target.clearFX === 'function') target.clearFX();
+    if (typeof target.resetPostPipeline === 'function') target.resetPostPipeline(true);
+    if (target.postFX && typeof target.postFX.clear === 'function') target.postFX.clear();
+    if (target.preFX && typeof target.preFX.clear === 'function') target.preFX.clear();
+    if (Array.isArray(target.postPipelines) && target.postPipelines.length) {
+        target.postPipelines.length = 0;
+        target.hasPostPipeline = false;
+    }
+}
+
+function clearSceneFx(scene) {
+    if (!scene) return;
+    clearFxTarget(scene.cameras?.main);
+    if (scene.children && Array.isArray(scene.children.list)) {
+        scene.children.list.forEach(child => clearFxTarget(child));
+    }
+}
+
 window.onload = function() {
     patchContainerAdd();
     const config = {
@@ -26,8 +46,24 @@ window.onload = function() {
         },
         parent: 'game-container',
         pixelArt: true, // Crucial for sharp pixel art
+        roundPixels: true, // Eliminates tile seam gaps from sub-pixel rendering
         backgroundColor: '#1a1a2e',
         scene: [BootScene, CharSelectScene, Task1ConversationScene, ClassroomScene, GameScene, UIScene, FootballScene, MazeScene, CompleteScene],
+        callbacks: {
+            postBoot: (game) => {
+                const hookScene = (scene) => {
+                    if (!scene || !scene.events) return;
+                    scene.events.on(Phaser.Scenes.Events.CREATE, () => clearSceneFx(scene));
+                };
+
+                game.scene.scenes.forEach(hookScene);
+                if (game.scene.events) {
+                    game.scene.events.on(Phaser.Scenes.Events.ADD, (key, scene) => hookScene(scene));
+                } else if (typeof game.scene.on === 'function') {
+                    game.scene.on(Phaser.Scenes.Events.ADD, (key, scene) => hookScene(scene));
+                }
+            }
+        },
         physics: {
             default: 'arcade',
             arcade: {

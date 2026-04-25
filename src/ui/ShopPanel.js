@@ -17,7 +17,6 @@ class ShopPanel {
         div.style.overflowY = 'auto';
         div.style.fontFamily = 'sans-serif';
         div.style.color = '#fff';
-        div.style.boxShadow = '0 10px 30px rgba(0,0,0,0.5)';
 
         // Header
         const header = document.createElement('h2');

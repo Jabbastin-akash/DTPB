@@ -24,7 +24,6 @@ class TaskPanel {
             color: white;
             font-family: 'Press Start 2P', sans-serif;
             font-size: 14px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         `;
         this.rootDiv = div;
 
@@ -139,7 +138,6 @@ class TaskPanel {
         this.rootDiv.style.backgroundImage = 'linear-gradient(rgba(223, 216, 200, 0.92), rgba(223, 216, 200, 0.92)), url("assets/School/Class.png")';
         this.rootDiv.style.backgroundSize = 'cover';
         this.rootDiv.style.backgroundPosition = 'center';
-        this.rootDiv.style.boxShadow = '5px 5px 15px rgba(0,0,0,0.3)';
 
         this.headerEl.innerHTML = '📋 Interview Notes';
         this.headerEl.style.color = '#4A443B';
@@ -157,7 +155,6 @@ class TaskPanel {
         clip.style.position = 'absolute';
         clip.style.top = '-20px';
         clip.style.left = 'calc(50% - 60px)';
-        clip.style.boxShadow = 'inset 0 4px 8px rgba(0,0,0,0.2)';
         this.rootDiv.style.position = 'relative';
         this.rootDiv.style.marginTop = '20px';
         this.rootDiv.appendChild(clip);
@@ -775,7 +772,6 @@ class TaskPanel {
             heading.innerText = title;
             heading.style.fontWeight = 'bold';
             heading.style.color = color;
-            heading.style.textShadow = '0 1px 2px rgba(0,0,0,0.35)';
             col.appendChild(heading);
 
             fields.forEach(field => {
@@ -919,7 +915,6 @@ class TaskPanel {
         seal.style.fontSize = '28px';
         seal.style.transform = 'scale(0) rotate(-30deg)';
         seal.style.transition = 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)';
-        seal.style.boxShadow = '0 0 15px rgba(0,0,0,0.4)';
 
         this.rootDiv.appendChild(seal);
 

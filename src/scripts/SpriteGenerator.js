@@ -178,17 +178,10 @@ function generateExclamationTexture() {
     canvas.width = 16;
     canvas.height = 24;
     const ctx = canvas.getContext('2d');
-    // Glow
-    ctx.fillStyle = 'rgba(241, 196, 15, 0.4)';
-    ctx.beginPath();
-    ctx.arc(8, 12, 10, 0, Math.PI * 2);
-    ctx.fill();
     // Mark
     ctx.fillStyle = '#f1c40f';
     ctx.fillRect(6, 2, 4, 12);
     ctx.fillRect(6, 16, 4, 4);
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.fillRect(7, 3, 1, 10);
     return canvas;
 }
 

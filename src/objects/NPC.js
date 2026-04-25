@@ -36,14 +36,7 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
 
         // Bobbing animation stored on a small state object to avoid tween target issues
         this.markerBob = { offset: 0 };
-        this.markerTween = this.scene.tweens.add({
-            targets: this.markerBob,
-            offset: 4,
-            duration: 500,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.easeInOut'
-        });
+        this.markerTween = null;
 
         // Setup AI
         this.patrolPath = [];
@@ -316,15 +309,6 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
     // Called from GameScene after NPCs are created
     initialize() {
         if (!this.taskId) return;
-
-        this.pulseRing = this.scene.add.graphics({ x: this.x, y: this.y + 4 });
-        this.pulseRing.setDepth(9);
-        this.pulseRing.setVisible(false);
-
-        this.updatePulseRing(); // Initial state
-
-        // Any task completion can unlock the next NPC
-        EventBus.on('task:completed', this.updatePulseRing, this);
     }
 
     drawPulseRing() {

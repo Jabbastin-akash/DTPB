@@ -24,9 +24,14 @@
         }
 
         #game-container {
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
-            border-radius: 8px;
+            box-shadow: none;
+            border-radius: 0;
             overflow: hidden;
+        }
+
+        #game-container, #game-container canvas {
+            box-shadow: none !important;
+            filter: none !important;
         }
 
         /* Task Panel Input Styling */
@@ -75,10 +80,6 @@
             background-color: #c0392b;
         }
 
-        .shop-panel button:hover:not(:disabled) {
-            transform: scale(1.05);
-        }
-
         h2, h3, h4 { margin-top: 0; }
         
         .task-panel label {
@@ -94,32 +95,32 @@
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     
     <!-- Load Core Dependencies -->
-    <script src="src/data/gameState.js?v=5"></script>
+    <script src="src/data/gameState.js?v=7"></script>
     <script src="src/data/characterConfig.js?v=1"></script>
     <script src="src/data/tasks.js?v=3"></script>
     <script src="src/data/upgrades.js"></script>
     <script src="src/utils/EventBus.js"></script>
-    <script src="src/scripts/TilesetGenerator.js?v=30"></script>
-    <script src="src/scripts/SpriteGenerator.js"></script>
-    <script src="src/objects/NPC.js?v=5"></script>
+    <script src="src/scripts/TilesetGenerator.js?v=55"></script>
+    <script src="src/scripts/SpriteGenerator.js?v=20260422"></script>
+    <script src="src/objects/NPC.js?v=6"></script>
     <script src="src/objects/Player.js?v=3"></script>
-    <script src="src/ui/HUD.js"></script>
-    <script src="src/ui/TaskPanel.js?v=9"></script>
-    <script src="src/ui/ShopPanel.js"></script>
+    <script src="src/ui/HUD.js?v=2"></script>
+    <script src="src/ui/TaskPanel.js?v=10"></script>
+    <script src="src/ui/ShopPanel.js?v=2"></script>
 
     <!-- Load Scenes -->
-    <script src="src/scenes/BootScene.js?v=30"></script>
-    <script src="src/scenes/CharSelectScene.js?v=6"></script>
+    <script src="src/scenes/BootScene.js?v=43"></script>
+    <script src="src/scenes/CharSelectScene.js?v=7"></script>
     <script src="src/scenes/Task1ConversationScene.js?v=8"></script>
     <script src="src/scenes/ClassroomScene.js?v=6"></script>
-    <script src="src/scenes/FootballScene.js?v=11"></script>
+    <script src="src/scenes/FootballScene.js?v=12"></script>
     <script src="src/scenes/MazeScene.js?v=3"></script>
-    <script src="src/scenes/GameScene.js?v=17"></script>
+    <script src="src/scenes/GameScene.js?v=54"></script>
     <script src="src/scenes/UIScene.js"></script>
     <script src="src/scenes/CompleteScene.js"></script>
 
     <!-- Load Main Game Entry Point -->
-    <script src="main.js"></script>
+    <script src="main.js?v=2"></script>
 </head>
 <body>
     <div id="game-container"></div>
