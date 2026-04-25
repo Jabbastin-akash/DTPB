@@ -118,9 +118,10 @@ class GameScene extends Phaser.Scene {
             spawnPoint ? spawnPoint.y + 16 : 600,
             { scale: playerWorldScale }
         );
-        this.physics.add.collider(this.player, this.wallsLayer);
-        this.physics.add.collider(this.player, this.objectsLayer);
-        this.physics.add.collider(this.player, this.staticObjects);
+        this.playerColliders = [];
+        this.playerColliders.push(this.physics.add.collider(this.player, this.wallsLayer));
+        this.playerColliders.push(this.physics.add.collider(this.player, this.objectsLayer));
+        this.playerColliders.push(this.physics.add.collider(this.player, this.staticObjects));
         // We will add player collision with waterBlockers later in the file after they are created
 
         this.createShopZone();
@@ -186,7 +187,7 @@ class GameScene extends Phaser.Scene {
         
         this.physics.add.collider(this.npcs, this.waterBlockers);
 
-        this.physics.add.collider(this.player, this.waterBlockers);
+        this.playerColliders.push(this.physics.add.collider(this.player, this.waterBlockers));
 
         const npcObjects = map.getObjectLayer('NPCs')?.objects ?? [];
         npcObjects.forEach(obj => {
@@ -194,10 +195,11 @@ class GameScene extends Phaser.Scene {
             const npcId = props.find(p => p.name === 'npcId')?.value || obj.name;
             const taskId = props.find(p => p.name === 'taskId')?.value || null;
             
+            // REMOVE PRE-EXISTING GENERIC NPCS (Villagers)
+            if (npcId.startsWith('villager')) return; 
+
             let spriteKey = npcId;
-            if (npcId.startsWith('villager')) {
-                spriteKey = npcId;
-            } else if (npcId.startsWith('task')) {
+            if (npcId.startsWith('task')) {
                 spriteKey = taskId;
             }
 
@@ -207,19 +209,87 @@ class GameScene extends Phaser.Scene {
 
             const npc = new NPC(this, x, y, spriteKey, npcId, { taskId });
             this.npcs.add(npc);
-            npc.initialize(); // Call initialize to set up pulse rings and listeners
+            npc.initialize();
 
-            // Assign patrols for tasks
             if (taskId && TASKS[taskId]) {
                 npc.setPatrol(TASKS[taskId].npcPatrol);
             } else if (npcId === 'guide') {
-                // Guide walks to greet player once spawned, then stays
                 npc.patrolPath = [{ x: 12, y: 17 }];
                 npc.targetNode = npc.patrolPath[0];
-            } else if (npcId.startsWith('villager')) {
-                // High-quality random movement within a 3-tile radius
-                npc.setRandomPatrol(Math.floor(x/32), Math.floor(y/32), 3);
             }
+        });
+
+        // Add the custom curious NPCs!
+        const curiousData = [
+            { name: "Oceanologist", key: "custom_male_1", x: 62*32, y: 35*32, lines: [
+                "Did you know that water makes up 71% of the Earth's surface?",
+                "I wonder what's hiding at the bottom of the deepest ocean!",
+                "Fish actually communicate by making popping sounds!"
+            ]},
+            { name: "Astronomer", key: "custom_female_2", x: 70*32, y: 15*32, lines: [
+                "Look at the sky! Why do you think it's blue?",
+                "If you travel fast enough, time actually slows down. Crazy, right?",
+                "I want to build a rocket to visit Mars one day."
+            ]},
+            { name: "Entomologist", key: "custom_child_3", x: 25*32, y: 40*32, lines: [
+                "Did you know butterflies taste with their feet?",
+                "Bugs are amazing! Some beetles can lift 850 times their own weight.",
+                "I'm looking for a rare golden butterfly!"
+            ]},
+            { name: "Botanist", key: "custom_male_4", x: 45*32, y: 55*32, lines: [
+                "Trees talk to each other through underground mushroom networks!",
+                "The oldest tree in the world is over 4,800 years old.",
+                "If you listen closely, you can hear the leaves whispering."
+            ]},
+            { name: "Geologist", key: "custom_female_5", x: 95*32, y: 30*32, lines: [
+                "Volcanoes can erupt under the ocean and create brand new islands!",
+                "The Earth's core is as hot as the surface of the sun.",
+                "I love collecting weird shaped rocks!"
+            ]},
+            { name: "Beekeeper", key: "custom_child_6", x: 80*32, y: 45*32, lines: [
+                "Did you know that honey never spoils?",
+                "Bees have 5 eyes! How cool is that?",
+                "I'm trying to invent a new flavor of honey!"
+            ]},
+            { name: "Farmer", key: "custom_male_7", x: 15*32, y: 25*32, lines: [
+                "Sunflowers aren't just one flower, they're made of thousands of tiny flowers!",
+                "Plants actually enjoy music! Classical music makes them grow faster.",
+                "I'm trying to grow a pumpkin the size of a car!"
+            ]},
+            { name: "Baker", key: "custom_female_a_1", x: 35*32, y: 15*32, lines: [
+                "Bread rises because of tiny organisms called yeast eating sugar!",
+                "The world's largest cookie was 100 feet wide.",
+                "I'm baking a cake for the village festival!"
+            ]},
+            { name: "Artist", key: "custom_female_a_4", x: 85*32, y: 10*32, lines: [
+                "Colors can change how you feel! Blue makes people feel calm.",
+                "Pencils can draw a line that's 35 miles long!",
+                "I'm painting a mural of the whole village."
+            ]},
+            { name: "Zoologist", key: "custom_child_a_2", x: 55*32, y: 65*32, lines: [
+                "Elephants are the only animals that can't jump!",
+                "A snail can sleep for three years.",
+                "I'm studying the migration patterns of the local birds!"
+            ]},
+            { name: "Inventor", key: "custom_child_a_5", x: 40*32, y: 30*32, lines: [
+                "Most of the world's inventions come from people asking 'What if?'",
+                "The first computer was almost as big as a whole room!",
+                "I'm building a machine that can talk to squirrels!"
+            ]},
+            { name: "Chemist", key: "custom_male_2", x: 90*32, y: 55*32, lines: [
+                "Everything in the world is made of tiny invisible atoms!",
+                "Did you know that diamonds are actually made of the same stuff as coal?",
+                "I'm mixing a potion that turns water into different colors!"
+            ]}
+        ];
+
+        curiousData.forEach(data => {
+            const npc = new NPC(this, data.x, data.y, data.key, 'custom_npc');
+            npc.isCustomNpc = true;
+            npc.npcName = data.name;
+            npc.customDialogue = data.lines;
+            this.npcs.add(npc);
+            npc.setRandomPatrol(data.x/32, data.y/32, 4);
         });
 
         // Add interaction collision bounds
@@ -294,6 +364,25 @@ class GameScene extends Phaser.Scene {
         if (gameState.isTaskComplete('task3a')) {
             this.spawnUserNPC();
         }
+
+        // --- Pond Teleport to Atlantis ---
+        this.atlantisTriggered = false;
+        const pondCenterX = 87.5 * 32;
+        const pondCenterY = 67.5 * 32;
+        this.pondZone = this.add.rectangle(pondCenterX, pondCenterY, 6 * 32, 6 * 32, 0x000000, 0);
+        this.physics.add.existing(this.pondZone, true);
+        this.physics.add.overlap(this.player, this.pondZone, () => {
+            if (this.atlantisTriggered) return;
+            this.atlantisTriggered = true;
+            this.movementEnabled = false;
+            this.player.body.setVelocity(0, 0);
+            // Dramatic fade to black
+            this.cameras.main.fadeOut(600, 0, 0, 0);
+            this.cameras.main.once('camerafadeoutcomplete', () => {
+                this.scene.stop('UIScene');
+                this.scene.start('AtlantisScene');
+            });
+        });
     }
 
     createMissionGuider() {
@@ -323,7 +412,13 @@ class GameScene extends Phaser.Scene {
     }
 
     update(time, delta) {
-        if (this.player) this.player.update();
+        if (this.player) {
+            this.player.update();
+            const isFlying = this.player.texture.key === 'ironman' && this.player.isFlying;
+            if (this.playerColliders) {
+                this.playerColliders.forEach(c => c.active = !isFlying);
+            }
+        }
         this.updateMissionGuider();
         this.updateZonePrompt();
         this.updateRoamers(time);
@@ -623,7 +718,7 @@ class GameScene extends Phaser.Scene {
             sprite.body.setSize(bodyWidth, bodyHeight);
             sprite.body.setOffset(offX, offY);
 
-            this.physics.add.collider(this.player, sprite);
+            this.playerColliders.push(this.physics.add.collider(this.player, sprite));
             this.physics.add.collider(sprite, this.wallsLayer);
             this.physics.add.collider(sprite, this.objectsLayer);
             if (this.waterBlockers) {
@@ -640,7 +735,7 @@ class GameScene extends Phaser.Scene {
         this.physics.add.existing(pixelScenery, true);
         pixelScenery.body.setSize(pixelScenery.width * 0.8, pixelScenery.height * 0.4);
         pixelScenery.body.setOffset((pixelScenery.width * 0.2) / 2, pixelScenery.height * 0.6);
-        this.physics.add.collider(this.player, pixelScenery);
+        this.playerColliders.push(this.physics.add.collider(this.player, pixelScenery));
     }
 
     applyPathEdges() {

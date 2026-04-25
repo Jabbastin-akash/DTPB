@@ -23,9 +23,11 @@ class UIScene extends Phaser.Scene {
         // Check if an existing panel is open
         if (this.currentPanel) return;
 
-        const { npcId, taskId, greeting, npc } = data;
+        const { npcId, taskId, greeting, npc, isDialogue, name, portraitKey } = data;
 
-        if (npcId === 'shopkeeper') {
+        if (isDialogue) {
+            this.currentPanel = new DialogueBox(this, name || 'Villager', greeting, portraitKey, npc);
+        } else if (npcId === 'shopkeeper') {
             this.currentPanel = new ShopPanel(this, this.cameras.main.width / 2, this.cameras.main.height / 2);
         } else if (taskId) {
             this.currentPanel = new TaskPanel(this, taskId, this.cameras.main.width / 2, this.cameras.main.height / 2, greeting, npc);

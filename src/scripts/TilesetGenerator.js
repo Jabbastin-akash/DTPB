@@ -127,11 +127,17 @@ function drawPath(ctx, ox, oy, variant, pathTexture = null) {
 
 function drawPathEdge(ctx, ox, oy, edge, pathTexture = null) {
     drawPath(ctx, ox, oy, 99, pathTexture);
-    ctx.fillStyle = PAL.pathKerb;
-    if (edge === 't') fillRect(ctx, ox, oy, 32, 3, PAL.pathKerb);
-    else if (edge === 'b') fillRect(ctx, ox, oy + 29, 32, 3, PAL.pathKerb);
-    else if (edge === 'l') fillRect(ctx, ox, oy, 3, 32, PAL.pathKerb);
-    else if (edge === 'r') fillRect(ctx, ox + 29, oy, 3, 32, PAL.pathKerb);
+    // Draw some jagged grass overlapping the edge to make it look natural
+    const rng = mulberry32(ox * 13 + oy * 7);
+    for (let i = 0; i < 35; i++) {
+        let x = rng() * 32, y = rng() * 32;
+        if (edge === 't') y = rng() * 5;
+        else if (edge === 'b') y = 32 - rng() * 5;
+        else if (edge === 'l') x = rng() * 5;
+        else if (edge === 'r') x = 32 - rng() * 5;
+        drawPixel(ctx, ox + x, oy + y, rng() > 0.5 ? PAL.grassDark : PAL.grass3, 2);
+        if (rng() > 0.8) drawPixel(ctx, ox + x, oy + y, PAL.grass2, 1);
+    }
 }
 
 function drawStoneWall(ctx, ox, oy) {
@@ -554,7 +560,22 @@ function generateMapJSON(tilesetMargin, tilesetSpacing) {
 
     function setPath(x, y) {
         if (!inBounds(x, y)) return;
-        setTile(x, y, P);
+        // Introduce texture variation for a more organic look (mostly PATH, some PATH2)
+        const isVariant = hash01(x, y, 777) > 0.75;
+        setTile(x, y, isVariant ? TID.PATH2 : P);
+    }
+
+    function removePathCorner(x, y) {
+        if (!inBounds(x, y)) return;
+        setTile(x, y, G);
+    }
+
+    function roundIntersection3x3(cx, cy) {
+        // cx, cy is the top-left of the 3x3 intersection
+        removePathCorner(cx, cy);
+        removePathCorner(cx + 2, cy);
+        removePathCorner(cx, cy + 2);
+        removePathCorner(cx + 2, cy + 2);
     }
 
     const imageObjects = [];
@@ -604,7 +625,102 @@ function generateMapJSON(tilesetMargin, tilesetSpacing) {
     paintPathV(20, 20, 28, 2);
     paintPathV(35, 20, 28, 2);
 
+    // Round the outer corners of the park loop
+    removePathCorner(20, 20); // Top-left
+    removePathCorner(35, 20); // Top-right
+    removePathCorner(20, 29); // Bottom-left
+    removePathCorner(35, 29); // Bottom-right
+
+    // Round the main intersections (where 3x3 paths meet)
+    roundIntersection3x3(15, 30);
+    roundIntersection3x3(40, 30);
+    roundIntersection3x3(65, 30);
+    roundIntersection3x3(90, 30);
+
+    // === COBBLESTONE INTERSECTIONS ===
+    // Replace the center of each T/cross intersection with cobblestone (gray, clearly different from brown dirt)
+    function paintCobblestone(cx, cy, w, h) {
+        for (let dy = 0; dy < h; dy++)
+            for (let dx = 0; dx < w; dx++)
+                if (inBounds(cx + dx, cy + dy)) groundGrid[cy + dy][cx + dx] = TID.COBBLESTONE;
+    }
+    // Main horizontal + vertical intersections
+    paintCobblestone(15, 30, 3, 3); // left vertical x horizontal
+    paintCobblestone(40, 30, 3, 3); // mid-left vertical x horizontal
+    paintCobblestone(65, 30, 3, 3); // mid-right vertical x horizontal
+    paintCobblestone(90, 30, 3, 3); // right vertical x horizontal
+
+    // === FLOWER / LUSH BORDERS ALONG ROADS ===
+    // These are placed ADJACENT to path tiles in the ground layer so they show up
+    // as clearly visible colorful strips framing the roads.
+    function paintFlowerBorderH(roadY, roadThickness, x1, x2) {
+        const xa = Math.min(x1, x2), xb = Math.max(x1, x2);
+        for (let x = xa; x <= xb; x++) {
+            // 1 tile above the road
+            const aboveY = roadY - 1;
+            if (inBounds(x, aboveY) && groundGrid[aboveY][x] === G)
+                groundGrid[aboveY][x] = (hash01(x, aboveY, 42) > 0.5) ? TID.LUSH : TID.FLOWER_GROUND;
+            // 1 tile below the road
+            const belowY = roadY + roadThickness;
+            if (inBounds(x, belowY) && groundGrid[belowY][x] === G)
+                groundGrid[belowY][x] = (hash01(x, belowY, 42) > 0.5) ? TID.LUSH : TID.FLOWER_GROUND;
+        }
+    }
+    function paintFlowerBorderV(roadX, roadThickness, y1, y2) {
+        const ya = Math.min(y1, y2), yb = Math.max(y1, y2);
+        for (let y = ya; y <= yb; y++) {
+            const leftX = roadX - 1;
+            if (inBounds(leftX, y) && groundGrid[y][leftX] === G)
+                groundGrid[y][leftX] = (hash01(leftX, y, 42) > 0.5) ? TID.LUSH : TID.FLOWER_GROUND;
+            const rightX = roadX + roadThickness;
+            if (inBounds(rightX, y) && groundGrid[y][rightX] === G)
+                groundGrid[y][rightX] = (hash01(rightX, y, 42) > 0.5) ? TID.LUSH : TID.FLOWER_GROUND;
+        }
+    }
+    // Border the main horizontal road (y=30, thickness 3)
+    paintFlowerBorderH(30, 3, 0, MAP_COLS - 1);
+    // Border the vertical roads
+    paintFlowerBorderV(15, 3, 14, 48);
+    paintFlowerBorderV(40, 3, 0, 8);
+    paintFlowerBorderV(40, 3, 14, 48);
+    paintFlowerBorderV(40, 3, 56, 79);
+    paintFlowerBorderV(65, 3, 0, 8);
+    paintFlowerBorderV(65, 3, 14, 48);
+    paintFlowerBorderV(65, 3, 56, 79);
+    paintFlowerBorderV(90, 3, 14, 48);
+
+    // === SECOND LAYER OF LUSH (extra-wide borders) ===
+    // Paint an additional lush ring outside the flower ring for a thick, lush roadside feel
+    function paintLushBorderH(roadY, roadThickness, x1, x2) {
+        const xa = Math.min(x1, x2), xb = Math.max(x1, x2);
+        for (let x = xa; x <= xb; x++) {
+            const aboveY = roadY - 2;
+            if (inBounds(x, aboveY) && groundGrid[aboveY][x] === G)
+                groundGrid[aboveY][x] = TID.LUSH;
+            const belowY = roadY + roadThickness + 1;
+            if (inBounds(x, belowY) && groundGrid[belowY][x] === G)
+                groundGrid[belowY][x] = TID.LUSH;
+        }
+    }
+    function paintLushBorderV(roadX, roadThickness, y1, y2) {
+        const ya = Math.min(y1, y2), yb = Math.max(y1, y2);
+        for (let y = ya; y <= yb; y++) {
+            const leftX = roadX - 2;
+            if (inBounds(leftX, y) && groundGrid[y][leftX] === G)
+                groundGrid[y][leftX] = TID.LUSH;
+            const rightX = roadX + roadThickness + 1;
+            if (inBounds(rightX, y) && groundGrid[y][rightX] === G)
+                groundGrid[y][rightX] = TID.LUSH;
+        }
+    }
+    paintLushBorderH(30, 3, 0, MAP_COLS - 1);
+    paintLushBorderV(15, 3, 14, 48);
+    paintLushBorderV(40, 3, 0, 8);  paintLushBorderV(40, 3, 14, 48);  paintLushBorderV(40, 3, 56, 79);
+    paintLushBorderV(65, 3, 0, 8);  paintLushBorderV(65, 3, 14, 48);  paintLushBorderV(65, 3, 56, 79);
+    paintLushBorderV(90, 3, 14, 48);
+
     // Gate entry
+
     setTile(60, 52, GA); setTile(61, 52, GA); setTile(62, 52, GA);
 
     // Data arrays
@@ -730,48 +846,44 @@ function generateMapJSON(tilesetMargin, tilesetSpacing) {
             customBounds: treeBounds
         });
     };
-    // Organize trees in neat rows and columns instead of random placement
-    // Top row of trees
-    for(let i = 0; i < 16; i++) {
-        addTree(4 + i * 7, 2);
+    // Organize trees in an aesthetically pleasing way for children
+    // 1. Avenues along main horizontal road (y=30)
+    for (let x = 5; x < MAP_COLS; x += 12) {
+        if (x > 38 && x < 67) continue; // Skip bridge areas
+        addTree(x, 25); // Above road
+        addTree(x + 6, 35); // Below road (staggered)
     }
-    // Second row
-    for(let i = 0; i < 16; i++) {
-        addTree(4 + i * 7, 8);
+
+    // 2. Avenues along vertical roads (x=15, 90)
+    for (let y = 5; y < MAP_ROWS; y += 12) {
+        if (y > 28 && y < 32) continue; // Skip intersection
+        if (y > 8 && y < 12) continue; // Skip top river
+        if (y > 48 && y < 52) continue; // Skip bottom river
+        addTree(10, y); // Left of x=15
+        addTree(20, y + 6); // Right of x=15 (staggered)
+        addTree(85, y); // Left of x=90
+        addTree(95, y + 6); // Right of x=90 (staggered)
     }
-    // Third row
-    for(let i = 0; i < 16; i++) {
-        addTree(4 + i * 7, 14);
-    }
-    // Fourth row
-    for(let i = 0; i < 16; i++) {
-        addTree(4 + i * 7, 20);
-    }
-    // Fifth row (park area)
-    for(let i = 0; i < 16; i++) {
-        addTree(4 + i * 7, 35);
-    }
-    // Sixth row
-    for(let i = 0; i < 16; i++) {
-        addTree(4 + i * 7, 41);
-    }
+
+    // 3. Small "orchards" or park clusters
+    // Park area top-right
+    addTree(85, 5); addTree(90, 7); addTree(95, 5); addTree(100, 7);
     
-    // Left vertical column
-    for(let i = 0; i < 15; i++) {
-        addTree(2, 5 + i * 5);
-    }
-    // Inner left vertical column
-    for(let i = 0; i < 15; i++) {
-        addTree(38, 5 + i * 5);
-    }
-    // Inner right vertical column
-    for(let i = 0; i < 15; i++) {
-        addTree(70, 5 + i * 5);
-    }
-    // Right vertical column
-    for(let i = 0; i < 15; i++) {
-        addTree(100, 5 + i * 5);
-    }
+    // Park area bottom-left
+    addTree(10, 65); addTree(15, 62); addTree(20, 65); addTree(25, 62);
+    
+    // 4. Accent trees near houses
+    addTree(5, 2); addTree(15, 2); // Near House 1
+    addTree(22, -1); addTree(30, -1); // Near House 2
+    addTree(47, 1); addTree(55, 1); // Near House 3
+    addTree(72, 1); addTree(80, 1); // Near House 4
+    addTree(42, 20); addTree(55, 20); // Near School
+    
+    addTree(5, 22); addTree(15, 22); // Near House 5
+    addTree(22, 37); addTree(30, 37); // Near House 6
+    addTree(47, 37); addTree(55, 37); // Near House 7
+    addTree(72, 22); addTree(80, 22); // Near House 8
+    addTree(92, 15); addTree(105, 15); // Near House 9
     
     // Animals
     const animalBounds = { x: 0, y: 0, w: 1, h: 1 };

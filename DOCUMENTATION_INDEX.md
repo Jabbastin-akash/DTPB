@@ -1,4 +1,4 @@
-# 📚 NPC Village System - Documentation Index
+d# 📚 NPC Village System - Documentation Index
 
 **Status**: ✅ Complete and Production Ready  
 **Last Updated**: April 15, 2026  

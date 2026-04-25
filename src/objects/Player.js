@@ -64,6 +64,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         this.flyKey = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
         this.isFlying = false;
         this.baseY = null;
+        this._thrustEmitter = null;
 
         // Debug (temporary): throttle facing logs
         this._lastFacingLogAt = 0;
@@ -72,17 +73,72 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         this.lastInteract = 0;
     }
 
+    // ---- Thruster flame ----
+    _ensureFlameTexture() {
+        if (this.scene.textures.exists('ironman_thrust')) return;
+        const g = this.scene.make.graphics({ x: 0, y: 0, add: false });
+        // Blue outer glow
+        g.fillGradientStyle(0x0044ff, 0x0044ff, 0x00ccff, 0x00ccff, 1);
+        g.fillCircle(8, 8, 8);
+        // Bright cyan mid ring
+        g.fillStyle(0x00eeff, 0.85);
+        g.fillCircle(8, 8, 5);
+        // White-hot core
+        g.fillStyle(0xffffff, 1);
+        g.fillCircle(8, 8, 3);
+        g.generateTexture('ironman_thrust', 16, 16);
+        g.destroy();
+    }
+
+    _startThrust() {
+        this._ensureFlameTexture();
+        if (this._thrustEmitter) return;
+        // Use physics body bottom for exact feet position
+        const feetX = this.body.x + this.body.width / 2;
+        const feetY = this.body.y + this.body.height;
+        this._thrustEmitter = this.scene.add.particles(feetX, feetY, 'ironman_thrust', {
+            speed: { min: 30, max: 80 },
+            angle: { min: 75, max: 105 },   // mostly downward, slight spread
+            scale: { start: 1.2, end: 0 },
+            alpha: { start: 1, end: 0 },
+            tint: [0xffffff, 0x00eeff, 0x0088ff, 0x0044ff],
+            lifespan: 320,
+            frequency: 20,
+            quantity: 4,
+            gravityY: 30,
+            blendMode: 'ADD'
+        });
+        this._thrustEmitter.setDepth(99);
+    }
+
+    _stopThrust() {
+        if (!this._thrustEmitter) return;
+        this._thrustEmitter.stop();
+        this.scene.time.delayedCall(300, () => {
+            if (this._thrustEmitter) {
+                this._thrustEmitter.destroy();
+                this._thrustEmitter = null;
+            }
+        });
+    }
+
     update() {
         // Toggle fly mode (Ironman only)
         if (this.texture.key === 'ironman' && Phaser.Input.Keyboard.JustDown(this.flyKey)) {
             this.isFlying = !this.isFlying;
+            if (this.isFlying) {
+                this._startThrust();
+            } else {
+                this._stopThrust();
+            }
         }
 
         // Don't move if UI is active (movement locked by scene)
         if (this.scene.movementEnabled === false) {
             // Keep hover stable while paused
-            if (this.texture.key === 'ironman' && this.isFlying && typeof this.baseY === 'number') {
-                this.setY(this.baseY + Math.sin(this.scene.time.now / 200) * 2);
+            if (this.texture.key === 'ironman' && this.isFlying) {
+                const bobAmount = Math.round(Math.sin(this.scene.time.now / 200) * 2);
+                this.displayOriginY = (this.frame?.realHeight ?? this.height ?? 32) * this.originY + bobAmount;
                 this.setDepth(100);
             }
             this.anims.play(`${this.spriteKey}_idle_${this.facing}`, true);
@@ -140,10 +196,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
             }
         }
 
-        // Update baseY continuously when NOT flying so hover follows movement
-        if (!(this.texture.key === 'ironman' && this.isFlying)) {
-            this.baseY = this.y;
-        }
+
 
         // Movement system: Clean separation between ground and flying
         if (this.texture.key === 'ironman' && this.isFlying) {
@@ -167,17 +220,16 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         // Fly visuals + hover (Ironman only)
         if (this.texture.key === 'ironman') {
             if (this.isFlying) {
-                this.setAngle(vy < 0 ? -5 : (vy > 0 ? 5 : 0));
-                this.setTintFill(0x99ccff);
+                // Remove angle rotation to prevent pixel art blurring
+                this.setAngle(0);
 
-                if (typeof this.baseY !== 'number') {
-                    this.baseY = this.y;
-                }
-                this.setY(this.baseY + Math.sin(this.scene.time.now / 200) * 2);
+                // Subtle bob effect only — no float offset so camera stays aligned
+                const bobAmount = Math.round(Math.sin(this.scene.time.now / 200) * 2);
+                this.displayOriginY = (this.frame?.realHeight ?? this.height ?? 32) * this.originY + bobAmount;
             } else {
                 this.setAngle(0);
-                this.baseY = null;
                 this.clearTint();
+                this.displayOriginY = (this.frame?.realHeight ?? this.height ?? 32) * this.originY;
             }
         }
 
@@ -189,7 +241,9 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         }
 
         // Play anims (prevent spam by checking current anim)
-        if (isMoving) {
+        const shouldAnimateWalk = isMoving && !(this.texture.key === 'ironman' && this.isFlying);
+
+        if (shouldAnimateWalk) {
             const nextAnim = this.texture.key === 'ironman' ? `ironman_${this.facing}` : `${this.spriteKey}_${this.facing}`;
             if (this.anims.currentAnim?.key !== nextAnim) {
                 this.anims.play(nextAnim, true);
@@ -198,10 +252,17 @@ class Player extends Phaser.Physics.Arcade.Sprite {
             if (this.texture.key === 'ironman') {
                 this.anims.stop();
 
-                const idleMap = {
+                // When flying: use neutral "legs straight together" frame for each direction
+                const flyingFrameMap = {
+                    down:  1,   // frame 1: legs together, facing down
+                    right: 5,   // frame 5: legs together, facing right (row1)
+                    left:  9,   // frame 9: legs together, facing left (row2)
+                    up:    12   // frame 12: legs together, facing up
+                };
+                const idleMap = this.isFlying ? flyingFrameMap : {
                     down: 0,
-                    left: 4,
-                    right: 8,
+                    left: 8,
+                    right: 4,
                     up: 12
                 };
                 this.setFrame(idleMap[this.facing] ?? 0);
@@ -211,6 +272,13 @@ class Player extends Phaser.Physics.Arcade.Sprite {
                     this.anims.play(idleAnim, true);
                 }
             }
+        }
+
+        // Track thruster to feet (use physics body bottom — always at character's feet)
+        if (this._thrustEmitter) {
+            const feetX = this.body.x + this.body.width / 2;
+            const feetY = this.body.y + this.body.height;
+            this._thrustEmitter.setPosition(feetX, feetY);
         }
 
         // Interaction processing

@@ -127,16 +127,21 @@ class BootScene extends Phaser.Scene {
         // Grass textures
         this.load.image('grass_tex_8', 'assets/Grass/ground_grass_gen_08.png');
 
-        // Ironman character (4x4 sheet, 64x64 frames)
         // Ironman character (4x4 sheet)
-        // sprite-sheet-4x4-transparent.png is 2048x2048 => 512x512 per frame
-        // sprite-sheet-4x4-removebg-preview.png is 500x500 => 125x125 per frame
-        // Use the transparent sheet by default for clean indexing + consistent frame sizing.
         this.load.spritesheet(
             'ironman',
             "assets/NPC's/ironman.png/sprite-sheet-4x4-transparent.png",
             { frameWidth: 512, frameHeight: 512 }
         );
+
+        // Custom User Characters
+        this.load.image('custom_sheet_male', 'assets/Generic Male NPCs.png');
+        this.load.image('custom_sheet_female', 'assets/Generic Female NPCs.png');
+        this.load.image('custom_sheet_female_a', 'assets/Generic Female NPCs A.png');
+        this.load.image('custom_sheet_children', 'assets/Generic Children NPCs.png');
+        this.load.image('custom_sheet_children_a', 'assets/Generic Children NPCs A.png');
+
+
 
         // Add error handler for preload failures
         this.load.on('loaderror', (file) => {
@@ -391,7 +396,7 @@ class BootScene extends Phaser.Scene {
         if (!this.anims.exists('ironman_left')) {
             this.anims.create({
                 key: 'ironman_left',
-                frames: this.anims.generateFrameNumbers('ironman', { start: 4, end: 7 }),
+                frames: this.anims.generateFrameNumbers('ironman', { start: 8, end: 11 }),
                 frameRate: 10,
                 repeat: -1
             });
@@ -400,7 +405,7 @@ class BootScene extends Phaser.Scene {
         if (!this.anims.exists('ironman_right')) {
             this.anims.create({
                 key: 'ironman_right',
-                frames: this.anims.generateFrameNumbers('ironman', { start: 8, end: 11 }),
+                frames: this.anims.generateFrameNumbers('ironman', { start: 4, end: 7 }),
                 frameRate: 10,
                 repeat: -1
             });
@@ -427,7 +432,7 @@ class BootScene extends Phaser.Scene {
         if (!this.anims.exists('ironman_idle_left')) {
             this.anims.create({
                 key: 'ironman_idle_left',
-                frames: [{ key: 'ironman', frame: 4 }],
+                frames: [{ key: 'ironman', frame: 8 }],
                 frameRate: 1
             });
         }
@@ -435,7 +440,7 @@ class BootScene extends Phaser.Scene {
         if (!this.anims.exists('ironman_idle_right')) {
             this.anims.create({
                 key: 'ironman_idle_right',
-                frames: [{ key: 'ironman', frame: 8 }],
+                frames: [{ key: 'ironman', frame: 4 }],
                 frameRate: 1
             });
         }
@@ -1105,6 +1110,74 @@ class BootScene extends Phaser.Scene {
         createHumanoidAnimations();
         createPetAnimations();
         createExtraAnimations();
+
+        // ====== Process Custom User Uploaded Sheets ======
+        const processCustomSheet = (sheetKey, prefix) => {
+            const texExists = this.textures.exists(sheetKey);
+            const img = this.textures.get(sheetKey)?.getSourceImage?.();
+            
+            // If the texture failed to load, Phaser creates a 32x32 green box. Ignore it.
+            if (!texExists || !img || img.width === 32) return;
+            
+            console.log(`Processing custom sheet: ${sheetKey}`);
+
+            // RPG Maker format: 12 cols, 8 rows
+            const frameW = Math.floor(img.width / 12);
+            const frameH = Math.floor(img.height / 8);
+
+            for (let charIndex = 0; charIndex < 8; charIndex++) {
+                const charCol = charIndex % 4; // 0 to 3
+                const charRow = Math.floor(charIndex / 4); // 0 or 1
+
+                const startPixelX = charCol * 3 * frameW;
+                const startPixelY = charRow * 4 * frameH;
+
+                const canvas = document.createElement('canvas');
+                canvas.width = 7 * frameW;
+                canvas.height = 4 * frameH;
+                const ctx = canvas.getContext('2d');
+                ctx.imageSmoothingEnabled = false;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                const colMap = [1, 2, 1, 0, 1, 2, 1];
+
+                for (let dir = 0; dir < 4; dir++) {
+                    for (let col = 0; col < 7; col++) {
+                        const sx = startPixelX + colMap[col] * frameW;
+                        const sy = startPixelY + dir * frameH;
+                        const dx = col * frameW;
+                        const dy = dir * frameH;
+                        ctx.drawImage(img, sx, sy, frameW, frameH, dx, dy, frameW, frameH);
+                    }
+                }
+
+                const newKey = `${prefix}_${charIndex + 1}`;
+                addSpriteSheetFromCanvas(newKey, canvas, frameW, frameH);
+                
+                const dirs = ['down', 'left', 'right', 'up'];
+                for (let d = 0; d < 4; d++) {
+                    const base = d * 7;
+                    this.anims.create({
+                        key: `${newKey}_${dirs[d]}`,
+                        frames: this.anims.generateFrameNumbers(newKey, { start: base, end: base + 6 }),
+                        frameRate: 12,
+                        repeat: -1
+                    });
+                    this.anims.create({
+                        key: `${newKey}_idle_${dirs[d]}`,
+                        frames: [{ key: newKey, frame: base }],
+                        frameRate: 1
+                    });
+                }
+            }
+        };
+
+        processCustomSheet('custom_sheet_male', 'custom_male');
+        processCustomSheet('custom_sheet_female', 'custom_female');
+        processCustomSheet('custom_sheet_female_a', 'custom_female_a');
+        processCustomSheet('custom_sheet_children', 'custom_child');
+        processCustomSheet('custom_sheet_children_a', 'custom_child_a');
+        // ===============================================
 
         // Debug: Verify ALL humanoid animations exist
         console.log('✅ Ironman animations created:');

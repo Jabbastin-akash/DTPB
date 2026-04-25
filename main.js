@@ -48,7 +48,7 @@ window.onload = function() {
         pixelArt: true, // Crucial for sharp pixel art
         roundPixels: true, // Eliminates tile seam gaps from sub-pixel rendering
         backgroundColor: '#1a1a2e',
-        scene: [BootScene, CharSelectScene, Task1ConversationScene, ClassroomScene, GameScene, UIScene, FootballScene, MazeScene, CompleteScene],
+        scene: [BootScene, CharSelectScene, Task1ConversationScene, ClassroomScene, GameScene, UIScene, FootballScene, MazeScene, CompleteScene, AtlantisScene],
         callbacks: {
             postBoot: (game) => {
                 const hookScene = (scene) => {

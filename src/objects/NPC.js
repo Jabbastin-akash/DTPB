@@ -7,27 +7,24 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
 
         this.scene = scene;
         this.npcId = id;
-        this.spriteKey = spriteKey;
+        
+        // Fallback if texture/animation doesn't exist
+        this.spriteKey = scene.anims.exists(`${spriteKey}_down`) ? spriteKey : 'player_male';
         this.taskId = properties.taskId || null;
         
         // Setup sprite
         this.scene.add.existing(this);
         this.scene.physics.add.existing(this);
 
-        // Global visual scale for NPCs (kept in gameState)
-        const npcScale = gameState?.npcScale ?? gameState?.characterScale ?? 1;
-        if (npcScale !== 1) {
-            this.setScale(npcScale);
-        }
+        // Set a smaller, consistent scale for NPCs
+        this.setScale(0.8);
 
         this.body.setImmovable(true);
-        // generous hit box for interaction (auto-positioned near the feet)
-        const bodyW = 20;
-        const bodyH = 20;
-        const frameW = this.displayWidth || this.width || 32;
-        const frameH = this.displayHeight || this.height || 32;
+        // Collision body sized to fit the scaled character
+        const bodyW = 24;
+        const bodyH = 24;
         this.body.setSize(bodyW, bodyH);
-        this.body.setOffset(Math.floor((frameW - bodyW) / 2), Math.floor(frameH - bodyH));
+        this.body.setOffset((this.width - bodyW) / 2, this.height - bodyH);
 
         // Interaction marker (!)
         this.markerOffsetY = Math.round((this.displayHeight || this.height || 32) / 2) + 16;
@@ -43,7 +40,7 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
         this.currentPatrolIndex = 0;
         this.patrolWaitTime = 0;
         this.targetNode = null;
-        this.speed = 90;
+        this.speed = 100;
         this.facing = 'down';
 
         this.isInteracting = false;
@@ -269,8 +266,26 @@ class NPC extends Phaser.Physics.Arcade.Sprite {
                 this.isInteracting = false;
             });
             return true; // Panel opened
+        } else if (this.isCustomNpc || !this.taskId) {
+            // Pick a dialogue line
+            const lines = this.customDialogue || [this.getDialogue()];
+            this.dialogueIndex = this.dialogueIndex || 0;
+            const text = lines[this.dialogueIndex];
+            this.dialogueIndex = (this.dialogueIndex + 1) % lines.length;
+
+            EventBus.emit('npc:interact', {
+                isDialogue: true,
+                name: this.npcName || 'Villager',
+                portraitKey: this.spriteKey,
+                greeting: text,
+                npc: this
+            });
+            EventBus.once('panel:close', () => {
+                this.isInteracting = false;
+            });
+            return true;
         } else {
-            // Villagers, locked tasks, completed tasks, or guide
+            // Fallback for some reason
             this.showSpeechBubble(this.getDialogue());
             return false; // No panel opened
         }

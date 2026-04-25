@@ -1,0 +1,3 @@
+- [x] Fix CharSelectScene overlapping layout
+- [x] Fix CharSelectScene preview scale for different character asset sizes
+- [x] Verify gameState persistence of character selection

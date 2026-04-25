@@ -26,9 +26,9 @@ class CharSelectScene extends Phaser.Scene {
         ];
 
         // Layout for 3 items
-        const startX = 250;
-        const spacing = 180;
-        const y = 320;
+        const spacing = 250;
+        const startX = w / 2 - spacing;
+        const y = h / 2;
 
         this.characters.forEach((c, index) => {
             const x = startX + index * spacing;
@@ -46,16 +46,14 @@ class CharSelectScene extends Phaser.Scene {
         const preview = this.add.sprite(x, y - 30, spriteKey, 0);
 
         // Fit preview into the card regardless of sprite frame size/padding.
-        const characterScale = gameState?.characterScale ?? 1;
-        const maxW = Math.max(120, Math.round(120 * characterScale));
-        const maxH = Math.max(120, Math.round(120 * characterScale));
+        const maxW = 140;
+        const maxH = 140;
         const fw = preview.frame?.realWidth ?? preview.width ?? 1;
         const fh = preview.frame?.realHeight ?? preview.height ?? 1;
         const sFit = Math.min(maxW / fw, maxH / fh);
-
-        const cfg = (typeof getCharacterConfig === 'function') ? getCharacterConfig(spriteKey) : null;
-        const previewScaleAdjust = cfg?.scaleMultiplier ?? 1;
-        preview.setScale(sFit * previewScaleAdjust);
+        
+        // Use a consistent size on the selection cards
+        preview.setScale(sFit);
 
         // Name
         this.add.text(x, y + 80, label, {
